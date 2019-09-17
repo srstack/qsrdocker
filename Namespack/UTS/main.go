@@ -14,7 +14,7 @@ func main() {
 
 	// UTS Namespace 的系统调用参数
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflages: syscall.CLONE_NEWUTS,
+		Cloneflags: syscall.CLONE_NEWUTS,
 	}
 
 	cmd.Stdin = os.Stdin
