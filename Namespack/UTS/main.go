@@ -18,14 +18,14 @@ func main() {
 	}
 
 	cmd.Stdin = os.Stdin
-	cmd.stdout = os.Stdout
-	cmd.stderr = os.stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	
 	err := cmd.Run()
 
 	if err != nil {
 		// 等价于fmt.Println(); os.Exit(1);
-		log.Fatil(err)
+		log.Fatal(err)
 	}
 
 }
