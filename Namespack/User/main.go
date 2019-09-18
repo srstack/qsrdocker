@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// fork出来的进程的初始化命令
-	cmd := exec.Command("sh")
+	cmd := exec.Command("bash")
 
 	// 获取 qsr 用户 uid gid
 	user, err := user.Lookup("qsr")
