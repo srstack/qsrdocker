@@ -28,7 +28,7 @@ func main() {
     if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	log.Printf("uid=%s,gid=%s", user.Uid, user.Gid)
 
 	uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
