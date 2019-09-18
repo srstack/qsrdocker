@@ -22,8 +22,8 @@ func main() {
 
 	log.Printf("uid=%s,gid=%s", user.Uid, user.Gid)
 
-	uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
-	gid, _ := strconv.Atoi(user.Gid)
+	//uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
+	//gid, _ := strconv.Atoi(user.Gid)
 
 	// Namespace 的系统调用参数
 	cmd.SysProcAttr = &syscall.SysProcAttr{
