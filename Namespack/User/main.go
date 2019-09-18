@@ -34,14 +34,14 @@ func main() {
 			syscall.CLONE_NEWUSER,
 		UidMappings: []syscall.SysProcIDMap{
 			{
-				ContainerID: uint32(uid),
+				ContainerID: uid,
 				HostID:      syscall.Getuid(),
 				Size:        1,
 			},
 		},
 		GidMappings: []syscall.SysProcIDMap{
 			{
-				ContainerID: uint32(uid),
+				ContainerID: gid,
 				HostID:      syscall.Getgid(),
 				Size:        1,
 			},
