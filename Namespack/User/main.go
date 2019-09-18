@@ -48,7 +48,7 @@ func main() {
 		},
 	}
 	
-    cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 mysql 用户执行 os.exec
+    // cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 mysql 用户执行 os.exec
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
