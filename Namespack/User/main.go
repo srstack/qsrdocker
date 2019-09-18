@@ -7,7 +7,7 @@ import (
 	"log"  // 日志库
 	// 仅此介绍一遍
 	"os/user" // user库
-	"strconv"
+	//"strconv"
 )
 
 func main() {
