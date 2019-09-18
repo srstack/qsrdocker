@@ -15,7 +15,7 @@ func main() {
 	cmd := exec.Command("sh")
 
 	// 获取 qsr 用户 uid gid
-	user, err := user.Lookup("nobody")
+	user, err := user.Lookup("qsr")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,20 +35,20 @@ func main() {
 		UidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: uid,
-				HostID:      syscall.Getuid(),
+				HostID:      0,
 				Size:        1,
 			},
 		},
 		GidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: gid,
-				HostID:      syscall.Getgid(),
+				HostID:      0,
 				Size:        1,
 			},
 		},
 	}
 	
-    cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 qsr 用户执行 os.exec
+    // cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 qsr 用户执行 os.exec
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
