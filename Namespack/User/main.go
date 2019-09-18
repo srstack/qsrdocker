@@ -25,7 +25,7 @@ func main() {
 
 	// 获取 mysql 用户 uid gid
 	user, err := user.Lookup("mysql")
-    if err == nil {
+    if err != nil {
 		log.Fatal(err)
 	}
 	
