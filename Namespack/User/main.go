@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// fork出来的进程的初始化命令
-	cmd := exec.Command("bash")
+	cmd := exec.Command("sh")
 
 	// 获取 qsr 用户 uid gid
 	user, err := user.Lookup("qsr")
@@ -34,14 +34,14 @@ func main() {
 			syscall.CLONE_NEWUSER,
 		UidMappings: []syscall.SysProcIDMap{
 			{
-				ContainerID: uid,
+				ContainerID: 1,
 				HostID:      0,
 				Size:        1,
 			},
 		},
 		GidMappings: []syscall.SysProcIDMap{
 			{
-				ContainerID: gid,
+				ContainerID: 1,
 				HostID:      0,
 				Size:        1,
 			},
