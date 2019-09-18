@@ -26,16 +26,18 @@ func main() {
 	// 获取 mysql 用户 uid gid
 	user, err := user.Lookup("mysql")
     if err == nil {
-       uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
-       gid, _ := strconv.Atoi(user.Gid) 
-       cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 mysql 用户执行 os.exec
-    }
+		log.Fatal(err)
+	}
+	
+	uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
+    gid, _ := strconv.Atoi(user.Gid) 
+    cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 mysql 用户执行 os.exec
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	
-	err := cmd.Run()
+	err = cmd.Run()
 
 	if err != nil {
 		// 等价于fmt.Println(); os.Exit(1);
