@@ -14,18 +14,9 @@ func main() {
 	// fork出来的进程的初始化命令
 	cmd := exec.Command("sh")
 
-	// Namespace 的系统调用参数
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | 
-			syscall.CLONE_NEWIPC |  // IPC 调用参数
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWNS | // 史上第一个 Namespace
-			syscall.CLONE_NEWUSER,
-	}
-
 	// 获取 mysql 用户 uid gid
 	user, err := user.Lookup("qsr")
-    if err != nil {
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -33,6 +24,29 @@ func main() {
 
 	uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
 	gid, _ := strconv.Atoi(user.Gid)
+
+	// Namespace 的系统调用参数
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | 
+			syscall.CLONE_NEWIPC |  // IPC 调用参数
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWNS | // 史上第一个 Namespace
+			syscall.CLONE_NEWUSER,
+		UidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: uint32(uid),
+				HostID:      syscall.Getuid(),
+				Size:        1,
+			},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: uint32(uid),
+				HostID:      syscall.Getgid(),
+				Size:        1,
+			},
+		},
+	}
 	
     cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)} // 以 mysql 用户执行 os.exec
 
