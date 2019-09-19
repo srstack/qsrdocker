@@ -25,7 +25,8 @@ func main() {
 			syscall.CLONE_NEWIPC |  // IPC 调用参数
 			syscall.CLONE_NEWPID |
 			syscall.CLONE_NEWNS | // 史上第一个 Namespace
-			syscall.CLONE_NEWUSER,
+			syscall.CLONE_NEWUSER |
+			syscall.CLONE_NEWNET,
 		UidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0, // 映射为root
