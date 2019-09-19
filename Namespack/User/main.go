@@ -7,7 +7,7 @@ import (
 	"log"  // 日志库
 	// 仅此介绍一遍
 	"os/user" // user库
-	//"strconv"
+	"strconv"
 )
 
 func main() {
@@ -22,8 +22,8 @@ func main() {
 
 	log.Printf("uid=%s,gid=%s", user.Uid, user.Gid)
 
-	//uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
-	//gid, _ := strconv.Atoi(user.Gid)
+	uid, _ := strconv.Atoi(user.Uid)  // 字符串转int
+	gid, _ := strconv.Atoi(user.Gid)
 
 	// Namespace 的系统调用参数
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -34,14 +34,14 @@ func main() {
 			syscall.CLONE_NEWUSER,
 		UidMappings: []syscall.SysProcIDMap{
 			{
-				ContainerID: 1,
+				ContainerID: uid,
 				HostID:      0,
 				Size:        1,
 			},
 		},
 		GidMappings: []syscall.SysProcIDMap{
 			{
-				ContainerID: 1,
+				ContainerID: gid,
 				HostID:      0,
 				Size:        1,
 			},
