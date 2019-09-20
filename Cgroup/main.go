@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"os/exec"
 	"path"
 	"os"
 	"io/ioutil"
 	"syscall"
 	"strconv"
+	"log"
 )
 
 // 设置系统hierachy路径常量
