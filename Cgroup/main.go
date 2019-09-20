@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
 	"path"
 	"os"
@@ -62,6 +63,8 @@ func main() {
 		// 等价于fmt.Println(); os.Exit(1);
 		log.Fatal(err)
 	} else {
+		fmt.Println("out pid = %d". cmd.Process.Pid)
+
 		os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"), 0755) // 创建cgroup
 
 		ioutil.WriteFile(
