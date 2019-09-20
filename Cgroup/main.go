@@ -62,18 +62,18 @@ func main() {
 		// 等价于fmt.Println(); os.Exit(1);
 		log.Fatal(err)
 	} else {
-		os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"),0755) // 创建cgroup
+		os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"), 0755) // 创建cgroup
 
 		ioutil.WriteFile(
 			path.Join(cgroupHierarchyMemoryPath, "testmemorylimit", "tasks"), // 将限制进程pid写入cgroup tasks中
 			[]byte(strconv.Itoa(cmd.Process.Pid)), // 字节
-			0644
+			0644,
 		)
 
 		ioutil.WriteFile(
 			path.Join(cgroupHierarchyMemoryPath, "testmemorylimit", "memory.limit_in_bytes"),
 			[]byte("50m"), // 限制内存使用50M
-			0644
+			0644,
 		)
 	}
 }
