@@ -56,7 +56,7 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	
-	err := cmd.Run()
+	err := cmd.Start()
 
 	if err != nil {
 		// 等价于fmt.Println(); os.Exit(1);
@@ -76,4 +76,5 @@ func main() {
 			0644,
 		)
 	}
+	cmd.Process.Wait()
 }
