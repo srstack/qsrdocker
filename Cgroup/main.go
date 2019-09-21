@@ -63,9 +63,11 @@ func main() {
 		// 等价于fmt.Println(); os.Exit(1);
 		log.Fatal(err)
 	} else {
-		fmt.Println("out pid = %d", cmd.Process.Pid)
-
-		os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"), 0755) // 创建cgroup
+		err: = os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"), 0755) // 创建cgroup
+		
+		if err != nil{
+			fmt.Println(err) 
+	   }
 
 		ioutil.WriteFile(
 			path.Join(cgroupHierarchyMemoryPath, "testmemorylimit", "tasks"), // 将限制进程pid写入cgroup tasks中
