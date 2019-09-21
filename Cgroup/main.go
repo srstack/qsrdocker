@@ -63,9 +63,9 @@ func main() {
 		// 等价于fmt.Println(); os.Exit(1);
 		log.Fatal(err)
 	} else {
-		err: = os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"), 0755) // 创建cgroup
+		err := os.Mkdir(path.Join(cgroupHierarchyMemoryPath, "testmemorylimit"), 0755) // 创建cgroup
 		
-		if err != nil{
+		if err != nil {
 			fmt.Println(err) 
 	   }
 
