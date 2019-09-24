@@ -1,9 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"os"
+	log "github.com/Sirupsen/logrus"
+	"github.com/urfave/cil"
 )
 
 func main() {
 	fmt.Println("ok")
-}

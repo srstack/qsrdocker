@@ -69,6 +69,7 @@ func main() {
 			fmt.Println(err) 
 	   }
 
+	    // ioutil.WriteFile 属于 w 模式 
 		ioutil.WriteFile(
 			path.Join(cgroupHierarchyMemoryPath, "testmemorylimit", "tasks"), // 将限制进程pid写入cgroup tasks中
 			[]byte(strconv.Itoa(cmd.Process.Pid)), // 字节
