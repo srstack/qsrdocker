@@ -34,12 +34,15 @@ func RunCotainerInitProcess(command string, args []string) error {
 }
 
 func NewParentProcess(tty bool, command string) *exec.Cmd {
+
+	// 第一个参数为初始化 init RunCotainerInitProcess
 	args := []string{"init", command}
 	cmd := exec.Command("/proc/self/exe", args...)
 
 	uid := syscall.Getuid() // 字符串转int
 	gid := syscall.Getgid()
 
+	// 设置namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWIPC | // IPC 调用参数
