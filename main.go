@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"github.com/srstack/qsrdocker/container"
+
 	log "github.com/sirupsen/logrus"
+	"github.com/srstack/qsrdocker/container"
 	"github.com/urfave/cli"
 )
 
@@ -15,7 +16,7 @@ var runCmd = cli.Command{
 	Name: "run",
 	Usage: `Create a container with namespace and cgroup
 			qsrdocker run -ti [command]
-			-ti container's stdin stdout and stderr improt bash stdin stdout and stderr`,
+			-ti container's stdin stdout and stderr improt bash stdin stdout and stderr \n`,
 
 	Flags: []cli.Flag{
 		cli.BoolFlag{
@@ -48,7 +49,7 @@ init 初始化函数, 该函数/操作为 runCmd 默认会调用的内部方法�
 var initCmd = cli.Command{
 	Name: "init",
 	Usage: `init container process run user's process in container, Do not call it outside
-			warring: you can not use init in bash/sh`,
+			warring: you can not use init in bash/sh \n`,
 
 	/*
 		1. 获取传递过来的 参数
