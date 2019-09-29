@@ -14,9 +14,10 @@ const usage = ` qsrdocekr is a simple container runtime implementation.`
 // run 命令定义函数的Flges，可使用 -- 指定参数
 var runCmd = cli.Command{
 	Name: "run",
-	Usage: `Create a container with namespace and cgroup
+	Usage: `Create a container with namespace and cgroup .
 			qsrdocker run -ti [command]
-			-ti container's stdin stdout and stderr improt bash stdin stdout and stderr \r\n`,
+			-ti container's stdin stdout and stderr improt bash stdin stdout and stderr
+			`,
 
 	Flags: []cli.Flag{
 		cli.BoolFlag{
@@ -48,8 +49,9 @@ init 初始化函数, 该函数/操作为 runCmd 默认会调用的内部方法�
 */
 var initCmd = cli.Command{
 	Name: "init",
-	Usage: `init container process run user's process in container, Do not call it outside
-			warring: you can not use init in bash/sh \r\n`,
+	Usage: `init container process run user's process in container, Do not call it outside .
+			warring: you can not use init in bash/sh !
+			`,
 
 	/*
 		1. 获取传递过来的 参数
