@@ -33,9 +33,17 @@ func RunCotainerInitProcess(command string, args []string) error {
 
 }
 
-func NewParentProcess(tty bool, command string) *exec.Cmd {
+func newParentProcess(tty bool, command string) *exec.Cmd {
 
-	// 第一个参数为初始化 init RunCotainerInitProcess
+	/*
+		1. 第一个参数为初始化 init RunCotainerInitProcess
+		2. 通过系统调用 exec 运行 init 初始化 qsrdocker
+			执行当前 filename 对应的程序，并且覆盖前台(bash/sh)/当前进程的镜像、数据和堆栈信息
+			重新启动一个新的程序/覆盖当前进程
+			确保容器内的一个进程(init)是由我们指定的进程
+
+	*/
+
 	args := []string{"init", command}
 	cmd := exec.Command("/proc/self/exe", args...)
 
