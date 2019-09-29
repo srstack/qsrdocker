@@ -33,7 +33,7 @@ func RunCotainerInitProcess(command string, args []string) error {
 
 }
 
-func newParentProcess(tty bool, command string) *exec.Cmd {
+func NewParentProcess(tty bool, command string) *exec.Cmd {
 
 	/*
 		1. 第一个参数为初始化 init RunCotainerInitProcess

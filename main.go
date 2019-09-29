@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-
-	log "github.com/sirupsen/logrus"
 	"github.com/srstack/qsrdocker/container"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -98,7 +97,7 @@ func main() {
 }
 
 func qsrdockerRun(tty bool, command string) {
-	parent := container.newParentProcess(tty, command)
+	parent := container.NewParentProcess(tty, command)
 
 	err := parent.Start() // 启动真正的容器进程
 
