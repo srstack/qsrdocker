@@ -14,14 +14,19 @@ const usage = ` qsrdocekr is a simple container runtime implementation.`
 // run 命令定义函数的Flges，可使用 -- 指定参数
 var runCmd = cli.Command{
 	Name: "run",
-	Usage: `Create a container with namespace and cgroup .
-			qsrdocker run -ti [command]
-			-ti container's stdin stdout and stderr improt bash stdin stdout and stderr \n`,
+	Usage: `Create a container with namespace and cgroup
+		qsrdocker run -ti [command]
+		-it		container's stdin stdout and stderr improt bash stdin stdout and stderr \n`,
 
 	Flags: []cli.Flag{
 		cli.BoolFlag{
-			Name:  "ti", // 指定 ti 参数即当前的输入输出导入到标准输入输出
-			Usage: `enable tty`,
+			Name:  "it", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Usage: `enable tty `,
+		},
+
+		cli.BoolFlag{
+			Name:  "ti", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Usage: `enable tty `,
 		},
 	},
 
@@ -37,7 +42,9 @@ var runCmd = cli.Command{
 		}
 
 		cmd := context.Args().Get(0)
-		tty := context.Bool("ti")
+		tty := context.Bool("ti") || context.Bool("it")
+		// -ti 或者 -it 都可以
+
 		qsrdockerRun(tty, cmd)
 		return nil
 	},
@@ -49,15 +56,15 @@ init 初始化函数, 该函数/操作为 runCmd 默认会调用的内部方法�
 var initCmd = cli.Command{
 	Name: "init",
 	Usage: `init container process run user's process in container, Do not call it outside .
-			warring: you can not use init in bash/sh ! \n`,
+		warring: you can not use init in bash/sh ! \n`,
 
 	/*
 		1. 获取传递过来的 参数
 		2. 执行容器初始化
 	*/
 	Action: func(context *cli.Context) error {
-		cmd := context.Args().Get(0) // []string{"init", command}
-		log.Infof("init qsrdocker cmd : %s", cmd)
+		cmd := context.Args().Get(0) // []string{"init",command}
+		log.Infof("init qsrdocker and cmd : %s", cmd)
 		err := container.RunCotainerInitProcess(cmd, nil)
 		return err
 	},
