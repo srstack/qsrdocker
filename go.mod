@@ -1,3 +1,3 @@
-replace (
-    github.com/Sirupsen/logrus v1.4.2 => github.com/sirupsen/logrus v1.4.2
-)
+module github.com/srstack/qsrdocker
+
+go 1.13
