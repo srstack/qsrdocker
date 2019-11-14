@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	log "github.com/Sirupsen/logrus"
 )
 
 // SubsystemType 是所有cgroup结构体的元类（组合）,包含公用函数函数
@@ -84,9 +85,11 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 			if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(resConfig.MemoryLimit), 0644); err != nil {
 				// 写入文件失败则返回 error set cgroup memory fail
 				return fmt.Errorf("set cgroup %s fail %v", subsystemName, err)
+			} else {
+				log.Debugf("Set cgroup %v : %v", subsystemName, s.GetCgroupConf(resConfig, subsystemName))
 			}
 		}
-		// resConfig.MemoryLimit == "" 不设置限制，直接返回空
+		// resConfig.xxxx == "" 不设置限制，则直接返回空
 		return nil
 	} else {
 		// 无法获取相对应 cgroup 路径
@@ -103,6 +106,8 @@ func (s *SubsystemType) Apply(cgroupPath, subsystemName string, pid int) error {
 			// 将进程PID加入到对应目录下的 task 文件中
 			// strconv.Itoa(pid) int to string
 			return fmt.Errorf("set cgroup proc fail %v", err)
+		} else {
+			log.Debugf("Apply cgroup %v : %d", subsystemName, pid)
 		}
 		return nil
 	} else {
@@ -114,6 +119,7 @@ func (s *SubsystemType) Apply(cgroupPath, subsystemName string, pid int) error {
 // Remove 删除 cgroupPath 对应的 cgroup
 func (s *SubsystemType) Remove(cgroupPath, subsystemName string) error {
 	if subsysCgroupPath, err := GetCgroupPath(subsystemName, cgroupPath, false); err == nil {
+		log.Debugf("Remove cgroup %v", subsystemName)
 		return os.RemoveAll(subsysCgroupPath)
 	} else {
 		// 无法获取相对应 cgroup 路径

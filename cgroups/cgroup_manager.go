@@ -1,9 +1,7 @@
 package cgroups
 
 import (
-	"fmt"
-
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/srstack/qsrdocker/cgroups/subsystems"
 )
 
@@ -24,9 +22,10 @@ func NewCgroupManager(path string) *CgroupManager {
 func (c *CgroupManager) Apply(pid int) error {
 	for _, subSystemIn := range subsystems.SubsystemsIns {
 		if err := subSystemIn.Apply(c.Path, subSystemIn.Name(), pid); err != nil {
-			logrus.Warnf("Apply cgroup %v fail: ", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem apply
+			log.Warnf("Apply cgroup %v fail: %v", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem apply
 		}
 	}
+
 	return nil
 }
 
@@ -34,7 +33,7 @@ func (c *CgroupManager) Apply(pid int) error {
 func (c *CgroupManager) Set(resCongfig *subsystems.ResourceConfig) error {
 	for _, subSystemIn := range subsystems.SubsystemsIns {
 		if err := subSystemIn.Set(c.Path, subSystemIn.Name(), resCongfig); err != nil {
-			logrus.Warnf("Set cgroup %v fail: ", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem set
+			log.Warnf("Set cgroup %v fail: %v", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem set
 		}
 	}
 	return nil
@@ -44,7 +43,7 @@ func (c *CgroupManager) Set(resCongfig *subsystems.ResourceConfig) error {
 func (c *CgroupManager) Destroy() error {
 	for _, subSystemIn := range subsystems.SubsystemsIns {
 		if err := subSystemIn.Remove(c.Path, subSystemIn.Name()); err != nil {
-			logrus.Warnf("Destroy cgroup %v fail: ", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem destroy
+			log.Warnf("Destroy cgroup %v fail: %v", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem destroy
 		}
 	}
 	return nil

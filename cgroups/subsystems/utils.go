@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	log "github.com/Sirupsen/logrus"
 )
 
 // FindCgroupMointpoint 在 /proc/self/mountinfo 中找到关于 cgroup 挂载信息，获得挂载点根目录
@@ -29,6 +30,7 @@ func FindCgroupMointpoint(subsystem string) string {
 		// Go 数组没有 -1 index，所以只能循环遍历判断
 		for _, opt := range strings.Split(fields[len(fields)-1], ",") { // ["rw", "memory"]
 			if opt == subsystem {
+				log.Debugf("find cgroupRoot: %v", fields[4])
 				return fields[4]
 				// /sys/fs/cgroup/memory
 			}
@@ -43,8 +45,9 @@ func FindCgroupMointpoint(subsystem string) string {
 
 // GetCgroupPath 得到 cgroup 在虚拟文件系统中的绝对路径
 func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string, error) {
-	//获得cgroup根目录路径
+	// 获得cgroup根目录路径
 	cgroupRoot := FindCgroupMointpoint(subsystem)
+	// 若cgroupRoot为空，则以 CgroupPath 为 subsystem 路径
 
 	// 判断subsystem路径绝对路径是否存在 或者 文件/目录不存在且开启自动创建
 	if _, err := os.Stat(path.Join(cgroupRoot, cgroupPath)); err == nil || (autoCreate && os.IsNotExist(err)) {
@@ -57,7 +60,11 @@ func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string
 			}
 		}
 		// 返回目标目录
-		return path.Join(cgroupRoot, cgroupPath), nil
+		absCgroupPath := path.Join(cgroupRoot, cgroupPath) // 目标目录绝对路径
+
+		log.Debugf("subsystem path : %v", absCgroupPath)
+
+		return absCgroupPath, nil
 	} else {
 		// 无法获取目标目录
 		return "", fmt.Errorf("cgroup path error %v", err)
