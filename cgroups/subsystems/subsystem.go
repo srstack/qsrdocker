@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 	"strconv"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // SubsystemType 是所有cgroup结构体的元类（组合）,包含公用函数函数
