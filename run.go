@@ -4,7 +4,7 @@ import (
 	"github.com/srstack/qsrdocker/container"
 	"github.com/srstack/qsrdocker/cgroups/subsystems"
 	"github.com/srstack/qsrdocker/cgroups"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
 )
