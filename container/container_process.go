@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 )
 
 func RunCotainerInitProcess(command string, args []string) error {

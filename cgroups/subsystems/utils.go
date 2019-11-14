@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 )
 
 // FindCgroupMointpoint 在 /proc/self/mountinfo 中找到关于 cgroup 挂载信息，获得挂载点根目录

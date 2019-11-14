@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 	"github.com/srstack/qsrdocker/container"
 )
