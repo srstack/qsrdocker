@@ -3,7 +3,7 @@ package main
 import (
 	log "github.com/sirupsen/logrus"
 	"os"
-	"strings"
+	"github.com/srstack/qsrdocker/container"
 )
 
 func QsrdockerRun(tty bool, command string) {
