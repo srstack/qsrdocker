@@ -1,7 +1,6 @@
 package container
 
 import (
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"syscall"

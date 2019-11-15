@@ -16,8 +16,7 @@ var runCmd = cli.Command{
 	Flags: []cli.Flag{
 
 		cli.BoolFlag{
-			Name:    "it", // 指定 t 参数即当前的输入输出导入到标准输入输出
-			Aliases: []string{"ti"},
+			Name:    "it,ti", // 指定 t 参数即当前的输入输出导入到标准输入输出
 			Usage:   `enable tty and Keep STDIN open even if not attached`,
 		},
 	},
@@ -33,7 +32,7 @@ var runCmd = cli.Command{
 		log.Debugf("qsrdocker run cmd : %v", context.Args())
 
 		if len(context.Args()) < 1 {
-			return fmt.Errorf("miss run cmd, please qsrdocker -h or qsrdocker --help")
+			return fmt.Errorf("miss run cmd, please qsrdocker run -h")
 		}
 
 		cmd := context.Args().Get(0)
