@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -40,7 +41,7 @@ func (s *CPUSetSubSystem) Name() string {
 
 // Name CPUsubSystem 返回 cpu
 func (s *CPUSubSystem) Name() string {
-	return "cpuset"
+	return "cpu"
 }
 
 // Name MemorySubSystem 返回 memory
@@ -69,7 +70,7 @@ func (s *SubsystemType) GetCgroupFile(subsystemName string) string {
 	case "memory":
 		fileName = "memory.limit_in_bytes"
 	case "cpuset":
-		fileName = "cpuset.cpus"
+		fileName = "cpuset.cpus cpuset.mems" // 增加cpuset.mems，后续和cups一起设置
 	case "cpu":
 		fileName = "cpu.shares"
 	}
@@ -78,16 +79,29 @@ func (s *SubsystemType) GetCgroupFile(subsystemName string) string {
 
 // Set 设置CgroupPath对应的 cgroup 的内存资源限制
 func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *ResourceConfig) error {
+
 	// GetCgroupPath 是获取当前VFS中 cgroup 的路径
 	if subsysCgroupPath, err := GetCgroupPath(subsystemName, cgroupPath, true); err == nil {
-		if s.GetCgroupConf(resConfig, subsystemName) != "" {
-			// 设置 cgroup 的内存限制，将限制写入对应目录的 memory.lmit_in_bytes 中
-			if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(resConfig.MemoryLimit), 0644); err != nil {
-				// 写入文件失败则返回 error set cgroup memory fail
-				return fmt.Errorf("set cgroup %s fail %v", subsystemName, err)
-			} else {
-				log.Debugf("Set cgroup %v : %v", subsystemName, s.GetCgroupConf(resConfig, subsystemName))
+		if CgroupConf := s.GetCgroupConf(resConfig, subsystemName); CgroupConf != "" || subsystemName == "cpuset" {
+			
+			// 由于在NUMA模式下的问题，当cupset为空时，是无法将pid写入task的，所以默认为0
+			if subsystemName == "cpuset" && CgroupConf == "" {
+				CgroupConf = "0"
 			}
+
+			fileNameList := strings.Split(s.GetCgroupFile(subsystemName)," ") // 分割
+
+			// 循环文件
+			for _, fileName := range fileNameList {
+				// 设置 cgroup 的限制，将限制写入对应目录的 xxxxx 中
+				if err := ioutil.WriteFile(path.Join(subsysCgroupPath, fileName), []byte(CgroupConf), 0644); err != nil {
+					// 写入文件失败则返回 error set cgroup memory fail
+					return fmt.Errorf("set cgroup %s fail %v", subsystemName, err)
+				} else {
+					log.Debugf("Set cgroup %v in %v: %v", subsystemName, fileName, CgroupConf)
+				}
+			}
+
 		}
 		// resConfig.xxxx == "" 不设置限制，则直接返回空
 		return nil
@@ -95,7 +109,6 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 		// 无法获取相对应 cgroup 路径
 		return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
 	}
-
 }
 
 // Apply 将进程加入到cgroupPath对应的cgroup中

@@ -16,8 +16,10 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/skratchdot/open-golang v0.0.0-20190402232053-79abb63cd66e // indirect
 	github.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518 // indirect
+	github.com/stamblerre/gocode v1.0.0 // indirect
 	github.com/urfave/cli v1.22.1
 	github.com/uudashr/gopkgs v2.0.1+incompatible // indirect
+	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
 	golang.org/x/net v0.0.0-20191112182307-2180aed22343 // indirect
 	golang.org/x/tools v0.0.0-20191114222411-4191b8cbba09 // indirect
 	golang.org/x/tools/gopls v0.2.0 // indirect

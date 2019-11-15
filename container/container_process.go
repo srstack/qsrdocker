@@ -7,32 +7,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func RunCotainerInitProcess(command string, args []string) error {
 
-	/*
-		MS_ONEXC 本文件系统允许允许其他程序
-		MS_NOSUDI 本文件系统运行时，不允许 set_uid 和 set_gid
-		MS_NODEV linux 2.4 之后有的 mount 默认参数
-	*/
-
-	defaultMountFlages := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-
-	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlages), "")
-	// mount -t proc proc /proc
-
-	argv := []string{command}
-
-	err := syscall.Exec(command, argv, os.Environ())
-
-	if err != nil {
-		log.Errorf(err.Error())
-	}
-
-	return nil
-
-}
-
-func NewParentProcess(tty bool, command string) *exec.Cmd {
+// NewParentProcess 创建 runC 的守护进程
+func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 
 	/*
 		1. 第一个参数为初始化 init RunCotainerInitProcess
@@ -44,10 +21,14 @@ func NewParentProcess(tty bool, command string) *exec.Cmd {
 	*/
 
 	// 打印 command 
-	log.Debugf("Create Parent Process cmd: %v", command)
+	//log.Debugf("Create Parent Process cmd: %v", command)
 
-	args := []string{"init", command}
-	cmd := exec.Command("/proc/self/exe", args...) //将 args 切片打散作为参数传入
+	readPipe, writePipe, err := NewPipe()
+	if err != nil {
+		log.Errorf("Create New pipe err: %v", err)
+	}
+
+	cmd := exec.Command("/proc/self/exe", "init") // 执行 initCmd
 
 	uid := syscall.Getuid() // 字符串转int
 	gid := syscall.Getgid()
@@ -82,5 +63,19 @@ func NewParentProcess(tty bool, command string) *exec.Cmd {
 		cmd.Stderr = os.Stderr
 	}
 
-	return cmd
+	// 传入管道问价读端fd
+	cmd.ExtraFiles = []*os.File {readPipe}
+	// 一个进程的文件描述符默认 0 1 2 代表 输入 输出 错误 
+	// readPipe 为外带的第四个文件描述符 下标为 3
+
+	return cmd, writePipe // 返回给 Run 写端fd，用于接收用户参数
+}
+
+// NewPipe 创建匿名管道实现 runC进程和parent进程通信
+func NewPipe() (*os.File, *os.File, error) {
+	read, write, err := os.Pipe() //创建管道，半双工模型
+	if err != nil {
+		return nil, nil, err
+	}
+	return read, write, nil
 }

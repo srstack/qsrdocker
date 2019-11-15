@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/srstack/qsrdocker/container"
 	"github.com/urfave/cli"
+	"github.com/srstack/qsrdocker/cgroups/subsystems"
 )
 
 // run 命令定义函数的Flges，可使用 -- 指定参数
@@ -18,6 +18,22 @@ var runCmd = cli.Command{
 		cli.BoolFlag{
 			Name:    "it,ti", // 指定 t 参数即当前的输入输出导入到标准输入输出
 			Usage:   `enable tty and Keep STDIN open even if not attached`,
+		},
+		cli.BoolFlag{
+			Name:  "d",  // 后台去启动 默认模式
+			Usage: "detach container",
+		},
+		cli.StringFlag{
+			Name:  "m", // 设置 内存使用
+			Usage: "memory limit",
+		},
+		cli.StringFlag{
+			Name:  "cpushare", // 限制 Cpu 使用
+			Usage: "cpushare limit",
+		},
+		cli.StringFlag{
+			Name:  "cpuset", // 限制 Cpu 使用核数
+			Usage: "cpuset limit",
 		},
 	},
 
@@ -32,15 +48,34 @@ var runCmd = cli.Command{
 		log.Debugf("qsrdocker run cmd : %v", context.Args())
 
 		if len(context.Args()) < 1 {
-			return fmt.Errorf("miss run cmd, please qsrdocker run -h")
+			return fmt.Errorf("missing run container command, please qsrdocker run -h")
 		}
 
-		cmd := context.Args().Get(0)
+		var cmdList []string
+		for _, arg := range context.Args() {
+			cmdList = append(cmdList, arg)
+		}
+
 
 		tty := context.Bool("it")
 		// -ti 或者 -it 都可以
+		detach := context.Bool("d") 
 
-		QsrdockerRun(tty, cmd)
+		if tty && detach {
+			return fmt.Errorf("ti and d paramter can not both provided")
+		}
+
+		log.Debugf("enable tty %v", tty)
+
+		resConfig := &subsystems.ResourceConfig{
+			MemoryLimit: context.String("m"),
+			CPUSet:      context.String("cpuset"),
+			CPUShare:    context.String("cpushare"),
+		}
+
+		log.Debugf("create cgroup config: %v", resConfig)
+
+		QsrdockerRun(tty, cmdList, resConfig)
 		return nil
 	},
 }
@@ -60,9 +95,8 @@ var initCmd = cli.Command{
 		2. 执行容器初始化
 	*/
 	Action: func(context *cli.Context) error {
-		cmd := context.Args().Get(0) // []string{"init",command}
-		log.Debugf("init qsrdocker and cmd : %s", cmd)
-		err := container.RunCotainerInitProcess(cmd, nil)
+		log.Debugf("init qsrdocker")
+		err := container.RunCotainerInitProcess()
 		return err
 	},
 }
