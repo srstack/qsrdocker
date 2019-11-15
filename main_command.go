@@ -11,10 +11,7 @@ import (
 // run 命令定义函数的Flges，可使用 -- 指定参数
 var runCmd = cli.Command{
 	Name: "run",
-	Usage: `Create a container with namespace and cgroup
-
-		-i		Keep STDIN open even if not attached
-		-t		container's stdin stdout and stderr improt bash stdin stdout and stderr`,
+	Usage: `Create a container with namespace and cgroup`,
 
 	Flags: []cli.Flag{
 
