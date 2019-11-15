@@ -1,6 +1,7 @@
 package container
 
 import (
+	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"syscall"
@@ -42,6 +43,9 @@ func NewParentProcess(tty bool, command string) *exec.Cmd {
 			确保容器内的一个进程(init)是由我们指定的进程，而不是容器初始化init进程
 			容器内部调用
 	*/
+
+	// 打印 command 
+	log.Debugf("Create Parent Process cmd: %v", command)
 
 	args := []string{"init", command}
 	cmd := exec.Command("/proc/self/exe", args...) //将 args 切片打散作为参数传入

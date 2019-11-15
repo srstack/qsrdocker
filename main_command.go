@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 	"github.com/srstack/qsrdocker/container"
+	"github.com/urfave/cli"
 )
 
 // run 命令定义函数的Flges，可使用 -- 指定参数
@@ -16,14 +17,11 @@ var runCmd = cli.Command{
 		-t		container's stdin stdout and stderr improt bash stdin stdout and stderr`,
 
 	Flags: []cli.Flag{
-		cli.BoolFlag{
-			Name:  "i", // 指定 i 参数即当前的输入导入到标准输入
-			Usage: `Keep STDIN open `,
-		},
 
 		cli.BoolFlag{
-			Name:  "t", // 指定 ti 参数即当前的输出导入到标准输出
-			Usage: `enable tty `,
+			Name:    "it", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Aliases: []string{"ti"},
+			Usage:   `enable tty `,
 		},
 	},
 
@@ -34,12 +32,16 @@ var runCmd = cli.Command{
 	*/
 	Action: func(context *cli.Context) error {
 
+		// 打印当前输入的命令
+		log.Debugf("qsrdocker run cmd : %v", context.Args())
+
 		if len(context.Args()) < 1 {
-			return fmt.Errorf("miss cmd")
+			return fmt.Errorf("miss run cmd, please qsrdocker -h or qsrdocker --help")
 		}
 
 		cmd := context.Args().Get(0)
-		tty := context.Bool("i") && context.Bool("t")
+
+		tty := context.Bool("it")
 		// -ti 或者 -it 都可以
 
 		QsrdockerRun(tty, cmd)
@@ -54,6 +56,7 @@ var initCmd = cli.Command{
 	Name: "init",
 	Usage: `init container process run user's process in container, Do not call it outside.
 		Warring: you can not use init in bash/sh !`,
+	HideHelp: true, // 隐藏 init命令
 
 	/*
 		1. 获取传递过来的 参数
