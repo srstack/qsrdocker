@@ -21,7 +21,7 @@ var runCmd = cli.Command{
 		cli.BoolFlag{
 			Name:    "it", // 指定 t 参数即当前的输入输出导入到标准输入输出
 			Aliases: []string{"ti"},
-			Usage:   `enable tty `,
+			Usage:   `enable tty and Keep STDIN open even if not attached`,
 		},
 	},
 
