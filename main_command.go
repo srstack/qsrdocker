@@ -53,6 +53,7 @@ var initCmd = cli.Command{
 	Usage: `init container process run user's process in container, Do not call it outside.
 		Warring: you can not use init in bash/sh !`,
 	HideHelp: true, // 隐藏 init命令
+	Hidden: true,
 
 	/*
 		1. 获取传递过来的 参数
