@@ -30,7 +30,7 @@ func FindCgroupMointpoint(subsystem string) string {
 		// Go 数组没有 -1 index，所以只能循环遍历判断
 		for _, opt := range strings.Split(fields[len(fields)-1], ",") { // ["rw", "memory"]
 			if opt == subsystem {
-				log.Debugf("find cgroupRoot: %v", fields[4])
+				log.Debugf("find %v cgroupRoot: %v", subsystem, fields[4])
 				return fields[4]
 				// /sys/fs/cgroup/memory
 			}
@@ -62,11 +62,67 @@ func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string
 		// 返回目标目录
 		absCgroupPath := path.Join(cgroupRoot, cgroupPath) // 目标目录绝对路径
 
-		log.Debugf("subsystem path : %v", absCgroupPath)
+		log.Debugf("subsystem %v path : %v", subsystem, absCgroupPath)
 
 		return absCgroupPath, nil
 	} else {
 		// 无法获取目标目录
 		return "", fmt.Errorf("cgroup path error %v", err)
 	}
+}
+
+// NumNUMANode ：获取当前系统 NUMA 数量
+func NumNUMANode() int{
+	f, err := os.Open("/proc/buddyinfo")
+	// buddy 文件包含了node 相关信息
+	// 如：
+	/*
+	Node 0, zone      DMA     29      9      9      6      2      2      1      1      2      2      0 
+	Node 0, zone    DMA32    941   2242   1419    398    142     60     16      1      1      0      0 
+	*/
+
+	if err != nil {
+		return 1
+	}
+
+	defer f.Close()
+
+	var NUMANodeSlice []string
+
+	// NewScanner创建并返回一个从f读取数据的Scanner，默认的分割函数是ScanLines
+	scanner := bufio.NewScanner(f)
+	// Scan方法获取当前位置的token（该token可以通过Bytes或Text方法获得），并让Scanner的扫描位置移动到下一个token。
+	// 当扫描因为抵达输入流结尾或者遇到错误而停止时，本方法会返回false
+	// 简单理解就是一行一行读取
+	for scanner.Scan() {
+		txt := scanner.Text()
+		fields := strings.Split(txt, ",") // 以空格切片
+		NUMANodeSlice = append(NUMANodeSlice, fields[0])
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 1
+	}
+
+	// 去重
+	NUMANodeSlice = RemoveReplicaSliceString(NUMANodeSlice)
+
+	log.Debugf("OS NUMA Nodo : %s", NUMANodeSlice)
+	
+	return len(NUMANodeSlice)
+}
+
+// RemoveReplicaSliceString 切片去重
+func RemoveReplicaSliceString(srcSlice []string) []string {
+ 
+	resultSlice := make([]string, 0)
+	// 利用map key 值唯一去重
+    tempMap := make(map[string]bool, len(srcSlice))
+    for _, v := range srcSlice{
+        if tempMap[v] == false{
+            tempMap[v] = true
+            resultSlice = append(resultSlice, v)
+        }
+    }
+    return resultSlice
 }

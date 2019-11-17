@@ -21,19 +21,23 @@ var runCmd = cli.Command{
 		},
 		cli.BoolFlag{
 			Name:  "d",  // 后台去启动 默认模式
-			Usage: "detach container",
+			Usage: "Detach container",
 		},
 		cli.StringFlag{
 			Name:  "m", // 设置 内存使用
-			Usage: "memory limit",
+			Usage: "Set Memory limit",
 		},
 		cli.StringFlag{
 			Name:  "cpushare", // 限制 Cpu 使用
-			Usage: "cpushare limit",
+			Usage: "Set cpushare limit",
 		},
 		cli.StringFlag{
 			Name:  "cpuset", // 限制 Cpu 使用核数
-			Usage: "cpuset limit",
+			Usage: "Set cpuset limit",
+		},
+		cli.StringFlag{
+			Name:  "cpumem", // 在 NUMA模式下 限制 Cpu 使用 内存节点
+			Usage: "Set cpumem node limit in NUMA mode，Usually no restrictions",
 		},
 	},
 
@@ -71,9 +75,10 @@ var runCmd = cli.Command{
 			MemoryLimit: context.String("m"),
 			CPUSet:      context.String("cpuset"),
 			CPUShare:    context.String("cpushare"),
+			CPUMem:    	 context.String("cpumem"),
 		}
 
-		log.Debugf("create cgroup config: %v", resConfig)
+		log.Debugf("Create cgroup config: %T", resConfig)
 
 		QsrdockerRun(tty, cmdList, resConfig)
 		return nil

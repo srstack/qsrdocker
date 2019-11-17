@@ -5,6 +5,7 @@ type ResourceConfig struct {
 	MemoryLimit string // 内存限制
 	CPUShare    string // CUP时间片权重 (vruntime)
 	CPUSet      string // CPU核心数
+	CPUMem		string // NUMA 模式下cpu
 }
 
 // Subsystem 的抽象接口，每个 subsystem 可以实现以下四个接口

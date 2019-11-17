@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	log "github.com/sirupsen/logrus"
+	"runtime"
 )
 
 // SubsystemType 是所有cgroup结构体的元类（组合）,包含公用函数函数
@@ -59,6 +59,8 @@ func (s *SubsystemType) GetCgroupConf(resConfig *ResourceConfig, subsystemName s
 		conf = resConfig.CPUSet
 	case "cpu":
 		conf = resConfig.CPUShare
+	case "cpumem":
+		conf = resConfig.CPUMem
 	}
 	return conf
 }
@@ -70,9 +72,11 @@ func (s *SubsystemType) GetCgroupFile(subsystemName string) string {
 	case "memory":
 		fileName = "memory.limit_in_bytes"
 	case "cpuset":
-		fileName = "cpuset.cpus cpuset.mems" // 增加cpuset.mems，后续和cups一起设置
+		fileName = "cpuset.cpus"
 	case "cpu":
 		fileName = "cpu.shares"
+	case "cpumem":
+		fileName = "cpuset.mems"
 	}
 	return fileName
 }
@@ -84,24 +88,41 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 	if subsysCgroupPath, err := GetCgroupPath(subsystemName, cgroupPath, true); err == nil {
 		if CgroupConf := s.GetCgroupConf(resConfig, subsystemName); CgroupConf != "" || subsystemName == "cpuset" {
 			
-			// 由于在NUMA模式下的问题，当cupset为空时，是无法将pid写入task的，所以默认为0
+			// 由于在NUMA模式下的问题，当cupset为空时，是无法将pid写入task的，所以默认是不限制，即全部CUP
 			if subsystemName == "cpuset" && CgroupConf == "" {
-				CgroupConf = "0"
+				// 获取系统逻辑cpu核数
+				CPUNum := runtime.NumCPU()
+				CgroupConf = "0-" + strconv.Itoa(CPUNum-1) // 全部CPU
+				
 			}
 
-			fileNameList := strings.Split(s.GetCgroupFile(subsystemName)," ") // 分割
+			// 设置 cgroup 的限制，将限制写入对应目录的 xxxxx 中
+			if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(CgroupConf), 0644); err != nil {
+				// 写入文件失败则返回 error set cgroup memory fail
+				return fmt.Errorf("cgroup %s fail %v", subsystemName, err)
+			} else {
+				log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CgroupConf)
+			}
 
-			// 循环文件
-			for _, fileName := range fileNameList {
-				// 设置 cgroup 的限制，将限制写入对应目录的 xxxxx 中
-				if err := ioutil.WriteFile(path.Join(subsysCgroupPath, fileName), []byte(CgroupConf), 0644); err != nil {
+			// 根据 zoneinfo信息判断 是否为 NUMA 模式
+			if _, err := os.Stat("/proc/zoneinfo"); subsystemName == "cpuset" && !os.IsNotExist(err) {
+				// 获取配置
+				CPUmemConf := s.GetCgroupConf(resConfig, "cpumem")
+
+				// 默认情况下 不限制 NAMU节点使用
+				if CPUmemConf == "" {
+					CPUmemConf = "0-" + strconv.Itoa(NumNUMANode()-1) // 全部CPU
+				}
+
+				// 在NUMA 模式下 写入内存节点限制
+				if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile("cpumem")), []byte(CPUmemConf), 0644); err != nil {
 					// 写入文件失败则返回 error set cgroup memory fail
-					return fmt.Errorf("set cgroup %s fail %v", subsystemName, err)
+					return fmt.Errorf("cgroup %s fail %v", "cpumem", err)
 				} else {
-					log.Debugf("Set cgroup %v in %v: %v", subsystemName, fileName, CgroupConf)
+					log.Debugf("Set cgroup %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), CPUmemConf)
 				}
 			}
-
+			
 		}
 		// resConfig.xxxx == "" 不设置限制，则直接返回空
 		return nil
@@ -120,7 +141,7 @@ func (s *SubsystemType) Apply(cgroupPath, subsystemName string, pid int) error {
 			// strconv.Itoa(pid) int to string
 			return fmt.Errorf("set cgroup proc fail %v", err)
 		} else {
-			log.Debugf("Apply cgroup %v : %d", subsystemName, pid)
+			log.Debugf("Apply cgroup %v successful. curr pid: %d", subsystemName, pid)
 		}
 		return nil
 	} else {
