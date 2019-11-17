@@ -91,12 +91,11 @@ func NumNUMANode() int{
 
 	// NewScanner创建并返回一个从f读取数据的Scanner，默认的分割函数是ScanLines
 	scanner := bufio.NewScanner(f)
-	// Scan方法获取当前位置的token（该token可以通过Bytes或Text方法获得），并让Scanner的扫描位置移动到下一个token。
-	// 当扫描因为抵达输入流结尾或者遇到错误而停止时，本方法会返回false
-	// 简单理解就是一行一行读取
+
+	// 一行一行读取
 	for scanner.Scan() {
 		txt := scanner.Text()
-		fields := strings.Split(txt, ",") // 以空格切片
+		fields := strings.Split(txt, ",") // 以,切片
 		NUMANodeSlice = append(NUMANodeSlice, fields[0])
 	}
 
@@ -107,7 +106,7 @@ func NumNUMANode() int{
 	// 去重
 	NUMANodeSlice = RemoveReplicaSliceString(NUMANodeSlice)
 
-	log.Debugf("OS NUMA Nodo : %s", NUMANodeSlice)
+	log.Debugf("OS NUMA Node : %s", NUMANodeSlice)
 	
 	return len(NUMANodeSlice)
 }

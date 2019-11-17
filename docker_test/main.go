@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	//"strings"
+	//"math"
+	//"strconv"
+	"github.com/srstack/qsrdocker/docker_test/numa"
 )
 
 type Subsystem interface {
@@ -63,17 +67,30 @@ func (s *CPUSubSystem) Name() string {
 
 func main() {
 
-	var SubsystemsIns = []Subsystem{
-		&CPUSetSubSystem{},
-		&MemorySubSystem{},
-		&CPUSubSystem{},
-	}
+	// var SubsystemsIns = []Subsystem{
+	// 	&CPUSetSubSystem{},
+	// 	&MemorySubSystem{},
+	// 	&CPUSubSystem{},
+	// }
 
-	fmt.Println(SubsystemsIns[0].Print("/sys/fs/cgroup"))
-	fmt.Println(SubsystemsIns[0].Name())
-	fmt.Println(SubsystemsIns[1].Name())
-	fmt.Println(SubsystemsIns[2].Name())
-	fmt.Println(SubsystemsIns[0].GetConf(SubsystemsIns[0].Name()))
-	fmt.Println(SubsystemsIns[1].GetConf(SubsystemsIns[1].Name()))
-	fmt.Println(SubsystemsIns[2].GetConf(SubsystemsIns[2].Name()))
+	// fmt.Println(SubsystemsIns[0].Print("/sys/fs/cgroup"))
+	// fmt.Println(SubsystemsIns[0].Name())
+	// fmt.Println(SubsystemsIns[1].Name())
+	// fmt.Println(SubsystemsIns[2].Name())
+	// fmt.Println(SubsystemsIns[0].GetConf(SubsystemsIns[0].Name()))
+	// fmt.Println(SubsystemsIns[1].GetConf(SubsystemsIns[1].Name()))
+	// fmt.Println(SubsystemsIns[2].GetConf(SubsystemsIns[2].Name()))
+
+	// txt := "Node 0, zone      DMA     29      9      9      6      2      2      1      1      2      2      0"
+	// f := strings.Split(txt, " ")
+	// var r []string
+	// for _,v := range f {
+	// 	if v != "" && v != " " {
+	// 		r = append(r,v)
+	// 	}
+	// }
+	fmt.Println( numa.NumNode())
+	
+
+
 }
