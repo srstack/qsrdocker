@@ -8,6 +8,7 @@ import (
 	"strconv"
 	log "github.com/sirupsen/logrus"
 	"runtime"
+	"github.com/srstack/numaer"
 )
 
 // SubsystemType 是所有cgroup结构体的元类（组合）,包含公用函数函数
@@ -111,7 +112,7 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 
 				// 默认情况下 不限制 NAMU节点使用
 				if CPUmemConf == "" {
-					CPUmemConf = "0-" + strconv.Itoa(NumNUMANode()-1) // 全部CPU
+					CPUmemConf = "0-" + strconv.Itoa(numaer.NumNode()-1) // 全部CPU
 				}
 
 				// 在NUMA 模式下 写入内存节点限制
