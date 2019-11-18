@@ -111,8 +111,10 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 				CPUmemConf := s.GetCgroupConf(resConfig, "cpumem")
 
 				// 默认情况下 不限制 NAMU节点使用
-				if CPUmemConf == "" {
-					CPUmemConf = "0-" + strconv.Itoa(numaer.NumNode()-1) // 全部CPU
+				if numNode, err := numaer.NumNode(); CPUmemConf == "" && err == nil {
+					CPUmemConf = "0-" + strconv.Itoa(numNode-1) // 全部CPU
+				} else {
+					log.Warnf("set numa node fail, err: %v", err )
 				}
 
 				// 在NUMA 模式下 写入内存节点限制
