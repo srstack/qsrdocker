@@ -22,7 +22,7 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 
 	// 打印 command 
 	//log.Debugf("Create Parent Process cmd: %v", command)
-
+	
 	readPipe, writePipe, err := NewPipe()
 	if err != nil {
 		log.Errorf("Create New pipe err: %v", err)
