@@ -1,6 +1,7 @@
 module github.com/srstack/qsrdocker
 
 require (
+	github.com/Sirupsen/logrus v1.4.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/srstack/numaer v0.0.0-20191119083046-d8556f06ee9f

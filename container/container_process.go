@@ -7,6 +7,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	ImageDir				string = "/root/image/"
+	MountDir				string = "/root/mnt/"
+)
 
 // NewParentProcess 创建 runC 的守护进程
 func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
