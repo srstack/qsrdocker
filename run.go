@@ -7,13 +7,24 @@ import (
 	"github.com/srstack/qsrdocker/container"
 	"github.com/srstack/qsrdocker/cgroups/subsystems"
 	"github.com/srstack/qsrdocker/cgroups"
+	"math/rand"
+	"time"
 )
 
 // QsrdockerRun Docker守护进程启动
-func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceConfig) {
-	parent, writePipe := container.NewParentProcess(tty)
+func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceConfig, 
+	imageName, containerName string) {
 
-	if parent == nil {
+	// 获取容器id
+	containerID := randStringBytes(10)
+	if containerName == "" {
+		containerName = containerID
+	}
+
+	// 获取管道通信
+	parent, writePipe := container.NewParentProcess(tty, containerName, imageName)
+
+	if parent == nil || writePipe == nil {
 		log.Errorf("New parent process error")
 		return
 	}
@@ -23,7 +34,7 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 	}
 
 	// 创建 cgroup_manager
-	cgroupManager := cgroups.NewCgroupManager("qsrdocker_cgroup")
+	cgroupManager := cgroups.NewCgroupManager(containerID)
 	defer cgroupManager.Destroy()
 
 	// set 设置资源
@@ -37,6 +48,9 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 
 	if tty {
 		parent.Wait()
+
+		// 进程退出 exit
+		container.DeleteWorkSpace(containerName)
 	} 
 	
 	// 后台启动不需要 exit 了
@@ -51,4 +65,23 @@ func sendInitCommand(cmdList []string, writePipe *os.File) {
 	// 将 cmd 字符串通过管道传给 守护进程 parent
 	writePipe.WriteString(cmd)
 	writePipe.Close() // 关闭写端
+}
+
+
+// randStringBytes 随机获取容器id
+func randStringBytes(n int) string {
+
+	// 确定容器id 位数
+	letterBytes := "1234567890"
+
+	// 以当前时间为种子创建 rand
+	rand.Seed(time.Now().UnixNano())
+
+	// 创建容器id
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+
+	return string(b)
 }

@@ -5,15 +5,17 @@ import (
 	"os/exec"
 	"syscall"
 	log "github.com/sirupsen/logrus"
+	"strings"
 )
 
 var (
-	ImageDir				string = "/root/image/"
-	MountDir				string = "/root/mnt/"
+	RootDir					string = "/root/var/qsrdocker"
+	ImageDir				string = "/root/var/qsrdocker/image"
+	MountDir				string = "/root/var/qsrdocker/mnt"
 )
 
 // NewParentProcess 创建 runC 的守护进程
-func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, containerName, imageName string) (*exec.Cmd, *os.File) {
 
 	/*
 		1. 第一个参数为初始化 init RunCotainerInitProcess
@@ -30,6 +32,7 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	readPipe, writePipe, err := NewPipe()
 	if err != nil {
 		log.Errorf("Create New pipe err: %v", err)
+		return nil, nil
 	}
 
 	cmd := exec.Command("/proc/self/exe", "init") // 执行 initCmd
@@ -72,6 +75,19 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	// 一个进程的文件描述符默认 0 1 2 代表 输入 输出 错误 
 	// readPipe 为外带的第四个文件描述符 下标为 3
 
+	// 设置进程环境变量
+	//cmd.Env = append(os.Environ(), envSlice...)
+
+	// 创建容器运行目录
+	// 创建容器映射数据卷
+	err = NewWorkSpace(imageName, containerName)
+
+	if err != nil {
+		log.Errorf("Can't create docker workspace error :v", err)
+	}
+
+	// 设置进程运行目录
+	cmd.Dir = strings.Join([]string{MountDir, containerName, "merged"}, "/")
 	return cmd, writePipe // 返回给 Run 写端fd，用于接收用户参数
 }
 

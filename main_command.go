@@ -39,6 +39,10 @@ var runCmd = cli.Command{
 			Name:  "cpumem", // 在 NUMA模式下 限制 Cpu 使用 内存节点
 			Usage: "Set cpumem node limit in NUMA mode，Usually no restrictions",
 		},
+		cli.StringFlag{
+			Name:  "name",  // 容器名称
+			Usage: "container name",
+		},
 	},
 
 	/*
@@ -60,10 +64,15 @@ var runCmd = cli.Command{
 			cmdList = append(cmdList, arg)
 		}
 
+		imageName := cmdList[0]
+		cmdList = cmdList[1:]
 
 		tty := context.Bool("it")
 		// -ti 或者 -it 都可以
 		detach := context.Bool("d") 
+
+		// 容器名称
+		containerName := context.String("name")
 
 		if tty && detach {
 			return fmt.Errorf("ti and d paramter can not both provided")
@@ -80,7 +89,7 @@ var runCmd = cli.Command{
 
 		log.Debugf("Create cgroup config: %T", resConfig)
 
-		QsrdockerRun(tty, cmdList, resConfig)
+		QsrdockerRun(tty, cmdList, resConfig, imageName, containerName)
 		return nil
 	},
 }
