@@ -20,9 +20,11 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 	if containerName == "" {
 		containerName = containerID
 	}
-
+	log.Debugf("Container name is %v", containerName)
+	log.Debugf("Container ID is %v", containerID)
+	
 	// 获取管道通信
-	parent, writePipe := container.NewParentProcess(tty, containerName, imageName)
+	parent, writePipe := container.NewParentProcess(tty, containerID, imageName)
 
 	if parent == nil || writePipe == nil {
 		log.Errorf("New parent process error")
@@ -48,11 +50,16 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 
 	if tty {
 		parent.Wait()
-
 		// 进程退出 exit
-		container.DeleteWorkSpace(containerName)
+
+		// 删除工作目录
+		if err := container.DeleteWorkSpace(containerID); err != nil {
+			log.Errorf("Error: %v", err)
+		}
 	} 
 	
+
+
 	// 后台启动不需要 exit 了
 	//os.Exit(-1)
 }
@@ -60,7 +67,7 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 // sendInitCommand 将用户命令发送给守护进程 Parent
 func sendInitCommand(cmdList []string, writePipe *os.File) {
 	cmd := strings.Join(cmdList, " ") // 转为字符串
-	log.Debugf("command : %v", cmd)
+	log.Debugf("Command : %v", cmd)
 
 	// 将 cmd 字符串通过管道传给 守护进程 parent
 	writePipe.WriteString(cmd)

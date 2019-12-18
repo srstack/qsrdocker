@@ -30,7 +30,7 @@ func FindCgroupMointpoint(subsystem string) string {
 		// Go 数组没有 -1 index，所以只能循环遍历判断
 		for _, opt := range strings.Split(fields[len(fields)-1], ",") { // ["rw", "memory"]
 			if opt == subsystem {
-				log.Debugf("find %v cgroupRoot: %v", subsystem, fields[4])
+				log.Debugf("Find %v cgroupRoot: %v", subsystem, fields[4])
 				return fields[4]
 				// /sys/fs/cgroup/memory
 			}
@@ -56,17 +56,17 @@ func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string
 			if err := os.Mkdir(path.Join(cgroupRoot, cgroupPath), 0755); err == nil {
 			} else {
 				// 无法创建目标目录
-				return "", fmt.Errorf("error create cgroup %v", err)
+				return "", fmt.Errorf("Error create cgroup %v", err)
 			}
 		}
 		// 返回目标目录
 		absCgroupPath := path.Join(cgroupRoot, cgroupPath) // 目标目录绝对路径
 
-		log.Debugf("subsystem %v path : %v", subsystem, absCgroupPath)
+		log.Debugf("Subsystem %v path : %v", subsystem, absCgroupPath)
 
 		return absCgroupPath, nil
 	} else {
 		// 无法获取目标目录
-		return "", fmt.Errorf("cgroup path error %v", err)
+		return "", fmt.Errorf("Cgroup path error %v", err)
 	}
 }

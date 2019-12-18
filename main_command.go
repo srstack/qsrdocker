@@ -11,7 +11,7 @@ import (
 // run 命令定义函数的Flges，可使用 -- 指定参数
 var runCmd = cli.Command{
 	Name: "run",
-	Usage: `Create a container with namespace and cgroup`,
+	Usage: `Create a container with namespace and cgroup, docker run -ti [-m] [...] [image] [command]`,
 
 	Flags: []cli.Flag{
 
@@ -53,10 +53,10 @@ var runCmd = cli.Command{
 	Action: func(context *cli.Context) error {
 
 		// 打印当前输入的命令
-		log.Debugf("qsrdocker run cmd : %v", context.Args())
+		log.Debugf("Qsrdocker run cmd : %v", context.Args())
 
 		if len(context.Args()) < 1 {
-			return fmt.Errorf("missing run container command, please qsrdocker run -h")
+			return fmt.Errorf("Missing run container command, please qsrdocker run -h")
 		}
 
 		var cmdList []string
@@ -66,7 +66,7 @@ var runCmd = cli.Command{
 
 		imageName := cmdList[0]
 		cmdList = cmdList[1:]
-
+		
 		tty := context.Bool("it")
 		// -ti 或者 -it 都可以
 		detach := context.Bool("d") 
@@ -78,7 +78,7 @@ var runCmd = cli.Command{
 			return fmt.Errorf("ti and d paramter can not both provided")
 		}
 
-		log.Debugf("enable tty %v", tty)
+		log.Debugf("Enable tty %v", tty)
 
 		resConfig := &subsystems.ResourceConfig{
 			MemoryLimit: context.String("m"),
@@ -87,7 +87,7 @@ var runCmd = cli.Command{
 			CPUMem:    	 context.String("cpumem"),
 		}
 
-		log.Debugf("Create cgroup config: %T", resConfig)
+		log.Debugf("Create cgroup config: %+v", resConfig)
 
 		QsrdockerRun(tty, cmdList, resConfig, imageName, containerName)
 		return nil

@@ -18,11 +18,14 @@ func RunCotainerInitProcess() error {
 	// 获取用户输入
 	cmdList := readUserCmd()
 
-	if cmdList == nil || len(cmdList) == 0 {
+	log.Debugf("Get cmdList %v, len : %v from user", cmdList, len(cmdList))
+
+	if len(cmdList) == 1 && cmdList[0] == "" {
 		return fmt.Errorf("Run container get user command error, command is nil")
 	}
 
-	log.Debugf("Run container get user command : %v", cmdList)
+	// 设置挂载点
+	setUpMount()
 
 	// 调用 exec.LookPath 在系统的 PATH 中寻找命令的绝对路径
 	absPath, err := exec.LookPath(cmdList[0])
@@ -47,12 +50,11 @@ func readUserCmd() []string {
 
 	// readPipe是下标为 3 的文件描述符
 	readPipe := os.NewFile(uintptr(3), "pipe")
-
+	defer readPipe.Close()
 	cmdByte, err := ioutil.ReadAll(readPipe)
 
 	if err != nil {
 		log.Errorf("get user's cmd error : %v", err)
-
 		return nil
 	}
 
