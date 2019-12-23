@@ -82,6 +82,58 @@ func (s *SubsystemType) GetCgroupFile(subsystemName string) string {
 	return fileName
 }
 
+// Init 初始化 cgroup /sys/fs/[subsystem]/qsrdocker
+func (s *SubsystemType) Init(subsystemName string) error {
+	
+	// cgroupRoot 初始化根目录
+	cgroupRoot := FindCgroupMointpoint(subsystemName)
+	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")
+
+	// 创建 subsystem
+	if _, err := os.Stat(cgroupRoot); os.IsNotExist(err) {
+		// 创建目标目录
+		if err := os.Mkdir(cgroupRoot, 0755); err == nil {
+		} else {
+			// 无法创建目标目录
+			return fmt.Errorf("Error create cgroup %v", err)
+		}
+	}
+
+	log.Debugf("Create subsystem Root success : %v", cgroupRoot)
+
+	if subsystemName == "cpuset" {
+		CPUConf := "0-" + strconv.Itoa(runtime.NumCPU()-1) // 全部CPU
+
+		// 写入初始化状态  /cupset.cpus
+		if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile(subsystemName)), []byte(CPUConf), 0644); err != nil {
+			// 写入文件失败则返回 error set cgroup memory fail
+			return fmt.Errorf("Init cpuset.cpus %s fail %v", subsystemName, err)
+
+		} else {
+			// 初始化 cpus 失败
+			log.Debugf("Init cpuset.cpus %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CPUConf)
+		}
+
+		// NUMA 
+		if numaer.IsNUMA() {
+			if numNode, err := numaer.NumNode();  err == nil {
+				NodeConf := "0-" + strconv.Itoa(numNode-1) // 全部CPU
+				if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile("cpumem")), []byte(NodeConf), 0644); err != nil {
+					// 写入文件失败则返回 error set cgroup memory fail
+					return fmt.Errorf("Init cupset.mems %s fail %v", "cpumem", err)
+				} else {
+					// 初始化 mems 失败
+					log.Debugf("Init cupset.mems %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), NodeConf)
+				}
+			} else {
+				log.Warnf("judge numa node fail, err: %v", err )
+				return fmt.Errorf("Init cupset.mems %s fail %v", "cpumem", err)
+			}
+		}
+	}
+	return nil
+}
+
 // Set 设置CgroupPath对应的 cgroup 的内存资源限制
 func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *ResourceConfig) error {
 

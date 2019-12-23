@@ -49,6 +49,10 @@ func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string
 	cgroupRoot := FindCgroupMointpoint(subsystem)
 	// 若cgroupRoot为空，则以 CgroupPath 为 subsystem 路径
 
+	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")
+
+	log.Debugf("Get Cgroup Root PATH : %v", cgroupRoot)
+
 	// 判断subsystem路径绝对路径是否存在 或者 文件/目录不存在且开启自动创建
 	if _, err := os.Stat(path.Join(cgroupRoot, cgroupPath)); err == nil || (autoCreate && os.IsNotExist(err)) {
 		// 创建目标目录

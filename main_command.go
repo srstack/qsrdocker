@@ -43,6 +43,10 @@ var runCmd = cli.Command{
 			Name:  "name",  // 容器名称
 			Usage: "container name",
 		},
+		cli.StringFlag{
+			Name:  "v", // 挂载卷
+			Usage: "volume",
+		},
 	},
 
 	/*
@@ -74,6 +78,9 @@ var runCmd = cli.Command{
 		// 容器名称
 		containerName := context.String("name")
 
+		// 挂载卷
+		volume := context.String("v")
+
 		if tty && detach {
 			return fmt.Errorf("ti and d paramter can not both provided")
 		}
@@ -89,7 +96,7 @@ var runCmd = cli.Command{
 
 		log.Debugf("Create cgroup config: %+v", resConfig)
 
-		QsrdockerRun(tty, cmdList, resConfig, imageName, containerName)
+		QsrdockerRun(tty, cmdList, resConfig, imageName, containerName, volume)
 		return nil
 	},
 }

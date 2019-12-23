@@ -18,7 +18,7 @@ func RunCotainerInitProcess() error {
 	// 获取用户输入
 	cmdList := readUserCmd()
 
-	log.Debugf("Get cmdList %v, len : %v from user", cmdList, len(cmdList))
+	log.Debugf("Get cmdList %v from user", cmdList)
 
 	if len(cmdList) == 1 && cmdList[0] == "" {
 		return fmt.Errorf("Run container get user command error, command is nil")
@@ -36,7 +36,7 @@ func RunCotainerInitProcess() error {
 
 	log.Debugf("Find command absPATH : %s", absPath)
 
-	// exec 创建真正的容器进程
+	// exec 创建真正的容器种需要运行的进程
 	 if err := syscall.Exec(absPath, cmdList[0:], os.Environ()); err != nil {
 		log.Errorf(err.Error())
 	}

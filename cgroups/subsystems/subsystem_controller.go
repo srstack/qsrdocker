@@ -18,6 +18,7 @@ type Subsystem interface {
 	Remove(path, subsystemName string) error                         // 删除某个 cgroup
 	GetCgroupConf(resConfig *ResourceConfig, subsystemName string) string    // 获取相应的配置参数
 	GetCgroupFile(subsystemName string) string // 获取cgroup修改文件名
+	Init(subsystemName string) error // 初始化cgroup subsystem
 }
 
 // SubsystemsIns : 通过的 subsystem 初始化实例创建 资源限制链 数组(数目固定，不使用切片) interface 接口保证目标结构体必须实现相关方法

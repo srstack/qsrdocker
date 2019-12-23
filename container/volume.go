@@ -11,7 +11,7 @@ import (
 )
 
 // NewWorkSpace 创建容器文件系统
-func NewWorkSpace(imageName, containerID string) error {
+func NewWorkSpace(imageName, containerID, volume string) error {
 
 	// 获取 image id 
 	imageID := GetImageID(imageName)
@@ -178,7 +178,7 @@ func CreateMountPoint(containerID , imageID string) error {
 }
 
 // DeleteWorkSpace 解除容器在工作目录上的挂载，当容器退出时
-func DeleteWorkSpace(containerID string) error {
+func DeleteWorkSpace(containerID, volume string) error {
 
 	// 解除 overlay2 挂载
 	if err := UnMountPoint(containerID); err != nil {
@@ -204,11 +204,11 @@ func UnMountPoint(containerID string) error {
 	// 解除挂载
 	_, err := exec.Command("umount", mountDir).CombinedOutput()
 	if err != nil {
-		log.Errorf("Unmount %s error %v", mountDir, err)
+		log.Errorf("Umount %s error %v", mountDir, err)
 		return err
 	}
 	
-	log.Debugf("Unmount %s success", mountDir)
+	log.Debugf("Umount %s success", mountDir)
 
 	return nil
 }
