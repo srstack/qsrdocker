@@ -289,11 +289,11 @@ func UnMountBind(containerID string ,volumePaths []string) error {
 	// 解除挂载
 	_, err := exec.Command("umount", mountPath).CombinedOutput()
 	if err != nil {
-		log.Errorf("Umount bind %s error %v", mountPath, err)
+		log.Errorf("Umount Bind %s error %v", mountPath, err)
 		return err
 	}
 	
-	log.Debugf("Umount bind %s success", mountPath)
+	log.Debugf("Umount Bind %s success", mountPath)
 
 	return nil
 }
@@ -420,7 +420,7 @@ func CheckPath(path string) {
 	if !exist {
 		// Waring 等级 日志
 		// 默认自动创建目录 
-		log.Warning("Dst Ptah %v is not exits", path)
+		log.Warnf("Dst Ptah %v is not exits", path)
 
 		// 创建 host volume 目录
 		if err := os.MkdirAll(path, 0777); err != nil {
