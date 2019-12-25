@@ -241,7 +241,7 @@ func CreateMountPoint(containerID , imageID string) error {
 		return err
 	}
 
-	log.Debugf("Create mount overlays fs for docker ID : %v in %v", containerID, mergedDir)
+	log.Debugf("Create mount overlay fs for docker ID : %v in %v", containerID, mergedDir)
 
 	return nil
 }

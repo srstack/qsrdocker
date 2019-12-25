@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"syscall"
 	log "github.com/sirupsen/logrus"
-	"strings"
+	"path"
 )
 
 var (
@@ -37,15 +37,13 @@ func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.F
 		return nil, nil
 	}
 
-	log.Debugf("Create Pipe for qsrdocker: %v success", containerID)
-
 	// exec 方式直接运行 qsrdocker init 
 	cmd := exec.Command("/proc/self/exe", "init") // 执行 initCmd
 
-	log.Debugf("Set NameSpace to qsrdocker : %v", containerID)
-
 	uid := syscall.Getuid() // 字符串转int
 	gid := syscall.Getgid()
+
+	log.Debugf("Get qsrdocker : %v uid : %v ; gid : %v", containerID, uid, gid)
 
 	// 设置namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -71,6 +69,8 @@ func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.F
 		},
 	}
 
+	log.Debugf("Set NameSpace to qsrdocker : %v", containerID)
+
 	if tty {
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
@@ -95,7 +95,10 @@ func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.F
 	}
 
 	// 设置进程运行目录
-	cmd.Dir = strings.Join([]string{MountDir, containerID, "merged"}, "/")
+	cmd.Dir = path.Join(MountDir, containerID, "merged")
+
+	log.Debugf("Set qsrdocker : %v run dir : %v", containerID, path.Join(MountDir, containerID, "merged"))
+
 	return cmd, writePipe // 返回给 Run 写端fd，用于接收用户参数
 }
 
