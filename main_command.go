@@ -43,8 +43,9 @@ var runCmd = cli.Command{
 			Name:  "name",  // 容器名称
 			Usage: "container name",
 		},
-		cli.StringFlag{
-			Name:  "v", // 挂载卷
+		// 存在多个 -v 操作
+		cli.StringSliceFlag{
+			Name:  "v", // 数据卷
 			Usage: "volume",
 		},
 	},
@@ -78,8 +79,8 @@ var runCmd = cli.Command{
 		// 容器名称
 		containerName := context.String("name")
 
-		// 挂载卷
-		volume := context.String("v")
+		// 数据卷
+		volumes := context.StringSlice("v")
 
 		if tty && detach {
 			return fmt.Errorf("ti and d paramter can not both provided")
@@ -96,7 +97,7 @@ var runCmd = cli.Command{
 
 		log.Debugf("Create cgroup config: %+v", resConfig)
 
-		QsrdockerRun(tty, cmdList, resConfig, imageName, containerName, volume)
+		QsrdockerRun(tty, cmdList, volumes, resConfig, imageName, containerName)
 		return nil
 	},
 }
@@ -115,6 +116,7 @@ var initCmd = cli.Command{
 		1. 获取传递过来的 参数
 		2. 执行容器初始化
 	*/
+	
 	Action: func(context *cli.Context) error {
 		log.Debugf("init qsrdocker")
 		err := container.RunCotainerInitProcess()

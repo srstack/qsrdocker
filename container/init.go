@@ -67,7 +67,7 @@ func readUserCmd() []string {
 }
 
 // pivot_root 系统调用，改变当前的root文件系统
-// 与 chroot的区别
+// 与 chroot 的区别
 // chroot  是针对某个进程，系统的其他部分仍处于 原root下
 // prvot_root 是将整个系统移植到新的 new_root 下，移除系统对 old_root 的依赖
 // pivotRoot 修改当前 root 系统
@@ -96,6 +96,7 @@ func pivotRoot(root string) error {
 	}
 	
 	// new_root/.pivot_root
+	// 由于存在 根目录... 所以使用 filepath
 	pivotDir = filepath.Join("/", ".pivot_root")
 
 	// 解挂载

@@ -7,11 +7,12 @@ import (
 	"strings"
 	"fmt"
 	"io/ioutil"
-    "encoding/json"
+	"encoding/json"
+	"path"
 )
 
 // NewWorkSpace 创建容器文件系统
-func NewWorkSpace(imageName, containerID, volume string) error {
+func NewWorkSpace(imageName, containerID string) error {
 
 	// 获取 image id 
 	imageID := GetImageID(imageName)
@@ -32,14 +33,81 @@ func NewWorkSpace(imageName, containerID, volume string) error {
 	if err := CreateMountPoint(containerID, imageID); err != nil {
 		return fmt.Errorf("Can't create %v mount layer error %v", containerID, err)
 	}
-
 	return nil 
+}
+
+// InitVolume  数据卷挂载
+// 需要在 mount namespace 修改后(unshard) 才进行 Mount Bind 挂载 
+func InitVolume(containerID string, volumes []string) {
+	for _, volume := range volumes {
+		if volume != "" {
+			// host volume : guest volume
+			volumePaths := strings.Split(volume, ":")
+			length := len(volumePaths)
+
+			if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
+
+				// 数据卷实现
+				MountBindVolume(volumePaths, containerID)
+
+			} else {
+				log.Warnf("Volume parameter input is not correct")
+			}
+		}
+	}
+}
+
+// MountBindVolume 数据卷实现
+func MountBindVolume(volumePaths []string, containerID string) {
+
+	// host 卷
+	// 不存在则创建
+	hostPath := volumePaths[0]
+
+	// 检查目标是否存在
+	// 不存在默认创建为目录
+	CheckPath(hostPath)
+
+	// guest 卷
+	containerPath := volumePaths[1]
+
+	mntPath := path.Join(MountDir, containerID, "merged")
+
+	// 容器 megred 层为挂载点
+	containerVolumePtah := path.Join(mntPath, containerPath)
+
+	// 判断 guest path 是否存在
+	// 不存在则默认创建为目录
+	CheckPath(containerVolumePtah)
+	
+
+	// 判断 hostPath 是否为目录且为空
+	if !IsFile(hostPath) && IsEmptyDir(hostPath) {
+
+		log.Warnf("Host volume %v is empty, will copy data from guest volume", hostPath)
+
+		// 将 guest 目录中的数据 拷贝到 host 目录 数据卷中
+		_, err := exec.Command("cp", "-a", strings.Join([]string{containerVolumePtah,"/*"}, ""), hostPath).CombinedOutput()
+		if err != nil {
+			log.Warnf("Copy file from %v to %v failed. %v", containerVolumePtah, hostPath, err)
+		} else {
+			log.Debugf("Copy file from %v to %v success", containerVolumePtah, hostPath)
+		}
+	}
+
+	// 运行 mount --bind 挂载
+	_, err := exec.Command("mount", "--bind", hostPath, containerVolumePtah).CombinedOutput()
+	if err != nil {
+		log.Errorf("Mount Bind volume %v failed. %v", volumePaths, err)
+	} else {
+			log.Debugf("Mount Bind volume  %v to %v success", hostPath, containerVolumePtah)
+		}
 }
 
 // CreateReadOnlyLayer  解压 image.tar 到 镜像存放目录
 func CreateReadOnlyLayer(imageID string) error {
 	// 解压目录
-	ImageTarDir := strings.Join([]string{ImageDir, imageID}, "/")
+	ImageTarDir := path.Join(ImageDir, imageID)
 
 	// 镜像压缩文件路径
 	ImageTarPath := strings.Join([]string{ImageDir, "/", imageID, ".tar"}, "")
@@ -108,7 +176,7 @@ func CreateReadOnlyLayer(imageID string) error {
 func CreateWriteLayer(containerID string) error {
 
 	// 创建 cow 层 /root/mnt/containerID/diff
-	writeDir := strings.Join([]string{MountDir, containerID, "diff"}, "/")
+	writeDir := path.Join(MountDir, containerID, "diff")
 
 	// 创建目标目录
 	if err := os.MkdirAll(writeDir, 0777); err != nil {
@@ -124,7 +192,7 @@ func CreateWriteLayer(containerID string) error {
 // CreateMountPoint 创建挂载点，采用 overlay2 文件系统
 func CreateMountPoint(containerID , imageID string) error {
 
-	mergedDir := strings.Join([]string{MountDir, containerID, "merged"}, "/")
+	mergedDir := path.Join(MountDir, containerID, "merged")
 
 	// 创建挂载点目录
 	// /root/mnt/containerID/merged
@@ -137,7 +205,8 @@ func CreateMountPoint(containerID , imageID string) error {
 
 	// 创建 workdir 
 	// /root/mnt/containerID/work
-	workDir := strings.Join([]string{MountDir, containerID, "work"}, "/")
+	workDir := path.Join(MountDir, containerID, "work")
+
 	if err := os.MkdirAll(workDir, 0777); err != nil {
 		log.Errorf("Mkdir workdir %s error %v", workDir, err)
 		return err
@@ -147,8 +216,8 @@ func CreateMountPoint(containerID , imageID string) error {
 
 	// lowerdir： 这里的镜像应该是需要分层特性的... 后续改进... 
 	// 目前lowerdir 就一层...
-	lowerDir := strings.Join([]string{ImageDir , imageID}, "/")
-	upperDir := strings.Join([]string{MountDir, containerID, "diff"}, "/")
+	lowerDir := path.Join(ImageDir , imageID)
+	upperDir := path.Join(MountDir, containerID, "diff")
 	// workdir必须和upperdir是mount在同一个文件系统下， 而lower不是必须的
 
 	// 挂载目录结构
@@ -178,7 +247,23 @@ func CreateMountPoint(containerID , imageID string) error {
 }
 
 // DeleteWorkSpace 解除容器在工作目录上的挂载，当容器退出时
-func DeleteWorkSpace(containerID, volume string) error {
+func DeleteWorkSpace(containerID string, volumes []string) error {
+
+	// 解除 Mount bind 挂载
+	for _, volume := range volumes {
+		if volume != "" {
+			// host volume : guest volume
+			volumePaths := strings.Split(volume, ":")
+			length := len(volumePaths)
+
+			if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
+
+				// 数据卷实现
+				UnMountBind(containerID, volumePaths)
+			} 
+		}
+	}
+
 
 	// 解除 overlay2 挂载
 	if err := UnMountPoint(containerID); err != nil {
@@ -196,19 +281,36 @@ func DeleteWorkSpace(containerID, volume string) error {
 	return nil 
 }
 
-// UnMountPoint : 解除容器挂载
-func UnMountPoint(containerID string) error {
+// UnMountBind : 解除 Mount bind 挂载
+func UnMountBind(containerID string ,volumePaths []string) error {
 	// 挂载点
-	mountDir := strings.Join([]string{MountDir, containerID, "merged"}, "/")
-	
+	mountPath := path.Join(MountDir, containerID, volumePaths[1])
+
 	// 解除挂载
-	_, err := exec.Command("umount", mountDir).CombinedOutput()
+	_, err := exec.Command("umount", mountPath).CombinedOutput()
 	if err != nil {
-		log.Errorf("Umount %s error %v", mountDir, err)
+		log.Errorf("Umount bind %s error %v", mountPath, err)
 		return err
 	}
 	
-	log.Debugf("Umount %s success", mountDir)
+	log.Debugf("Umount bind %s success", mountPath)
+
+	return nil
+}
+
+// UnMountPoint : 解除容器挂载
+func UnMountPoint(containerID string) error {
+	// 挂载点
+	mountPath := path.Join(MountDir, containerID, "merged")
+	
+	// 解除挂载
+	_, err := exec.Command("umount", mountPath).CombinedOutput()
+	if err != nil {
+		log.Errorf("Umount overlay2 %s error %v", mountPath, err)
+		return err
+	}
+	
+	log.Debugf("Umount overlay2 %s success", mountPath)
 
 	return nil
 }
@@ -218,8 +320,8 @@ func UnMountPoint(containerID string) error {
 func DeleteDockerDir(containerID string) error {
 
 	// 容器数据目录 
-	// /root/var/qsrdocker/mnt/[containerID]
-	dockerDir := strings.Join([]string{MountDir, containerID}, "/")
+	// /var/qsrdocker/mnt/[containerID]
+	dockerDir := path.Join(MountDir, containerID)
 
 	// 删除该目录
 	if err := os.RemoveAll(dockerDir); err != nil {
@@ -240,7 +342,7 @@ func GetImageID(ImageName string) string {
 	var ImageConfig map[string]string
 
 	// 配置文件路径
-	ImageConfigPath := strings.Join([]string{ImageDir, "image.json"}, "/")
+	ImageConfigPath := path.Join(ImageDir, "image.json")
 
 	exist, err := PathExists(ImageConfigPath)
 
@@ -296,4 +398,36 @@ func PathExists(path string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// IsFile 判断是否为文件
+func IsFile(path string) bool {
+    fi, err := os.Stat(path)
+    if err != nil {
+        return false
+    }
+    return !fi.IsDir()
+}
+
+// CheckPath 检测路径状态
+func CheckPath(path string) {
+	exist, err := PathExists(path)
+
+	if err != nil {
+		log.Warnf("Can't judge %v status", path)
+	}
+	
+	if !exist {
+		// Waring 等级 日志
+		// 默认自动创建目录 
+		log.Warning("Dst Ptah %v is not exits", path)
+
+		// 创建 host volume 目录
+		if err := os.MkdirAll(path, 0777); err != nil {
+			log.Warnf("Mkdir path %v error : %v", path, err)
+		} else {
+			// 创建 host volume 成功
+			log.Debugf("Mkdir path %v success", path)
+		}
+	}
 }

@@ -9,14 +9,14 @@ import (
 )
 
 var (
-	RootDir					string = "/root/var/qsrdocker"
-	ImageDir				string = "/root/var/qsrdocker/image"
+	RootDir					string = "/var/qsrdocker"
+	ImageDir				string = "/var/qsrdocker/image"
 	// MountDir imagedir  imageName : imageID 的映射, 将映射写在 image.json文件中
-	MountDir				string = "/root/var/qsrdocker/mnt"
+	MountDir				string = "/var/qsrdocker/mnt"
 )
 
 // NewParentProcess 创建 runC 的守护进程
-func NewParentProcess(tty bool, containerID, imageName, volume string) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.File) {
 
 	/*
 		1. 第一个参数为初始化 init RunCotainerInitProcess
@@ -31,13 +31,18 @@ func NewParentProcess(tty bool, containerID, imageName, volume string) (*exec.Cm
 	//log.Debugf("Create Parent Process cmd: %v", command)
 	
 	readPipe, writePipe, err := NewPipe()
+
 	if err != nil {
 		log.Errorf("Create New pipe err: %v", err)
 		return nil, nil
 	}
 
+	log.Debugf("Create Pipe for qsrdocker: %v success", containerID)
+
 	// exec 方式直接运行 qsrdocker init 
 	cmd := exec.Command("/proc/self/exe", "init") // 执行 initCmd
+
+	log.Debugf("Set NameSpace to qsrdocker : %v", containerID)
 
 	uid := syscall.Getuid() // 字符串转int
 	gid := syscall.Getgid()
@@ -82,8 +87,7 @@ func NewParentProcess(tty bool, containerID, imageName, volume string) (*exec.Cm
 
 	// 创建容器运行目录
 	// 创建容器映射数据卷
-	// 创建挂载卷 （数据持久化）
-	err = NewWorkSpace(imageName, containerID, volume)
+	err = NewWorkSpace(imageName, containerID)
 
 	if err != nil {
 		log.Errorf("Can't create docker workspace error : %v", err)

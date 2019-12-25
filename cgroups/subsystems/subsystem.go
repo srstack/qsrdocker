@@ -108,23 +108,21 @@ func (s *SubsystemType) Init(subsystemName string) error {
 		if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile(subsystemName)), []byte(CPUConf), 0644); err != nil {
 			// 写入文件失败则返回 error set cgroup memory fail
 			return fmt.Errorf("Init cpuset.cpus %s fail %v", subsystemName, err)
-
-		} else {
-			// 初始化 cpus 失败
-			log.Debugf("Init cpuset.cpus %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CPUConf)
 		}
 
-		// NUMA 
+		// 初始化 cpus 成功
+		log.Debugf("Init cpuset.cpus %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CPUConf)
+		
+			// NUMA 
 		if numaer.IsNUMA() {
 			if numNode, err := numaer.NumNode();  err == nil {
-				NodeConf := "0-" + strconv.Itoa(numNode-1) // 全部CPU
+				NodeConf := "0-" + strconv.Itoa(numNode-1) // 全部Node节点
 				if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile("cpumem")), []byte(NodeConf), 0644); err != nil {
 					// 写入文件失败则返回 error set cgroup memory fail
 					return fmt.Errorf("Init cupset.mems %s fail %v", "cpumem", err)
-				} else {
-					// 初始化 mems 失败
-					log.Debugf("Init cupset.mems %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), NodeConf)
-				}
+				} 
+				// 初始化 mems 成功
+				log.Debugf("Init cupset.mems %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), NodeConf)
 			} else {
 				log.Warnf("judge numa node fail, err: %v", err )
 				return fmt.Errorf("Init cupset.mems %s fail %v", "cpumem", err)
@@ -153,9 +151,8 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 			if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(CgroupConf), 0644); err != nil {
 				// 写入文件失败则返回 error set cgroup memory fail
 				return fmt.Errorf("cgroup %s fail %v", subsystemName, err)
-			} else {
-				log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CgroupConf)
 			}
+			log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CgroupConf)
 
 			// 根据 zoneinfo信息判断 是否为 NUMA 模式
 			if _, err := os.Stat("/proc/zoneinfo"); subsystemName == "cpuset" && !os.IsNotExist(err) {
@@ -173,9 +170,9 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 				if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile("cpumem")), []byte(CPUmemConf), 0644); err != nil {
 					// 写入文件失败则返回 error set cgroup memory fail
 					return fmt.Errorf("cgroup %s fail %v", "cpumem", err)
-				} else {
-					log.Debugf("Set cgroup %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), CPUmemConf)
 				}
+				log.Debugf("Set cgroup %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), CPUmemConf)
+
 			}
 			
 		}
@@ -195,9 +192,8 @@ func (s *SubsystemType) Apply(cgroupPath, subsystemName string, pid int) error {
 			// 将进程PID加入到对应目录下的 task 文件中
 			// strconv.Itoa(pid) int to string
 			return fmt.Errorf("set cgroup proc fail %v", err)
-		} else {
-			log.Debugf("Apply cgroup %v successful. curr pid: %d", subsystemName, pid)
-		}
+		} 
+		log.Debugf("Apply cgroup %v successful. curr pid: %d", subsystemName, pid)
 		return nil
 	} else {
 		// 无法获取相对应 cgroup 路径

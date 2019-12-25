@@ -12,8 +12,8 @@ import (
 )
 
 // QsrdockerRun Docker守护进程启动
-func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceConfig, 
-	imageName, containerName, volume string) {
+func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.ResourceConfig, 
+	imageName, containerName string) {
 
 	// 获取容器id
 	containerID := randStringBytes(10)
@@ -24,16 +24,22 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 	log.Debugf("Container ID is %v", containerID)
 	
 	// 获取管道通信
-	parent, writePipe := container.NewParentProcess(tty, containerID, imageName, volume)
+	parent, writePipe := container.NewParentProcess(tty, containerID, imageName)
 
 	if parent == nil || writePipe == nil {
 		log.Errorf("New parent process error")
 		return
 	}
 
+	log.Debugf("Get Qsrdocker : %v parent process and pipe success", containerID)
+
 	if err := parent.Start(); err != nil { // 启动真正的容器进程
 		log.Error(err)
 	}
+
+	// 创建 mount bind 数据卷 挂载
+	container.InitVolume(containerID, volumes)
+	log.Debugf("InitVolume qsrdocker %v success", containerID)
 
 	// 创建 cgroup_manager
 	cgroupManager := cgroups.NewCgroupManager(containerID)
@@ -56,12 +62,10 @@ func QsrdockerRun(tty bool, cmdList []string, resCongfig *subsystems.ResourceCon
 		// 进程退出 exit
 
 		// 删除工作目录
-		if err := container.DeleteWorkSpace(containerID, volume); err != nil {
+		if err := container.DeleteWorkSpace(containerID, volumes); err != nil {
 			log.Errorf("Error: %v", err)
 		}
 	} 
-	
-
 
 	// 后台启动不需要 exit 了
 	//os.Exit(-1)
