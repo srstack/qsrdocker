@@ -53,7 +53,7 @@ func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.F
 		log.Fatalf("UserNamespace err : %v", err)
 	}
 
-	// 设置namespace
+	// 设置 namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWIPC | // IPC 调用参数
@@ -61,20 +61,21 @@ func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.F
 			syscall.CLONE_NEWNS | // 史上第一个 Namespace
 			syscall.CLONE_NEWUSER |
 			syscall.CLONE_NEWNET,
-		UidMappings: []syscall.SysProcIDMap{
+		UidMappings: []syscall.SysProcIDMap {
 			{
 				ContainerID: 0, // 映射为root
 				HostID:      uid,
 				Size:        1,
 			},
 		},
-		GidMappings: []syscall.SysProcIDMap{
+		GidMappings: []syscall.SysProcIDMap {
 			{
 				ContainerID: 0, // 映射为root
 				HostID:      gid,
 				Size:        1,
 			},
 		},
+		GidMappingsEnableSetgroups: false,
 	}
 
 	log.Debugf("Set NameSpace to qsrdocker : %v", containerID)
@@ -127,16 +128,14 @@ func InitUserNamespace() error {
 
 	UserNamespaceCountByte, err := ioutil.ReadFile(UserNamespacePath)
 
-	// []byte => string => 去空格 去换行
-	UserNamespaceCount := strings.Replace(strings.Replace(string(UserNamespaceCountByte)," ","", -1), "\n", "", -1)
-
 	// 读取失败
     if err != nil {
 	   return fmt.Errorf("Can't get UserNamespaceCount in %v error : %v" , UserNamespacePath, err)
 	}
 	
-	
-	
+	// []byte => string => 去空格 去换行
+	UserNamespaceCount := strings.Replace(strings.Replace(string(UserNamespaceCountByte)," ","", -1), "\n", "", -1)
+
 	if UserNamespaceCount == "0" {
 		if err := ioutil.WriteFile(UserNamespacePath, []byte("15000"), 0644); err != nil {
 			// 写入文件失败则返回 

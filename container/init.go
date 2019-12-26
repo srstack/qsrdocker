@@ -23,7 +23,8 @@ func RunContainerInitProcess() error {
 	if len(cmdList) == 1 && cmdList[0] == "" {
 		return fmt.Errorf("Run container get user command error, command is nil")
 	}
-	// 设置挂载点
+	
+	// 设置根目录挂载点
 	setUpMount()
 
 	// 调用 exec.LookPath 在系统的 PATH 中寻找命令的绝对路径
@@ -68,7 +69,7 @@ func readUserCmd() []string {
 // pivot_root 系统调用，改变当前的root文件系统
 // 与 chroot 的区别
 // chroot  是针对某个进程，系统的其他部分仍处于 原root下
-// prvot_root 是将整个系统移植到新的 new_root 下，移除系统对 old_root 的依赖
+// pivot_root 是将整个系统移植到新的 new_root 下，移除系统对 old_root 的依赖
 // pivotRoot 修改当前 root 系统
 func pivotRoot(root string) error {
 	// 为了保证当前root的 new_root 和 old_root 不在同一文件系统中
@@ -124,8 +125,6 @@ func setUpMount() {
 
 	log.Debugf("Current dir is : %v", pwd)
 
-	pivotRoot(pwd) // 修改当前目录为 根目录
-
 	/*
 		MS_ONEXC 本文件系统允许允许其他程序
 		MS_NOSUID 本文件系统运行时，不允许 set_uid 和 set_gid
@@ -134,17 +133,19 @@ func setUpMount() {
 	defaultMountFlages := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 
 	// mount -t proc proc /proc
-	if err := syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlages), ""); err != nil {
+	if err := syscall.Mount("proc", filepath.Join(pwd, "/proc"), "proc", uintptr(defaultMountFlages), ""); err != nil {
 		log.Warnf("Mount proc system fail : %v", err)
 	} else {
 		log.Debugf("Mount proc system success")
 	}
 	
 	// 挂载内存文件系统 tmpfs 
-	if err := syscall.Mount("tmpfs", "/dev", "tempfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755"); err != nil {
+	if err := syscall.Mount("tmpfs", filepath.Join(pwd, "/dev"), "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755"); err != nil {
 		log.Warnf("Mount tmpfs system fail : %v", err)
 	} else {
 		log.Debugf("Mount tmpfs system success")
 	}
+
+	pivotRoot(pwd) // 修改当前目录为 根目录
 
 }
