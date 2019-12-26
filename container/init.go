@@ -27,6 +27,8 @@ func RunContainerInitProcess() error {
 	// 设置根目录挂载点
 	setUpMount()
 
+	
+
 	// 调用 exec.LookPath 在系统的 PATH 中寻找命令的绝对路径
 	absPath, err := exec.LookPath(cmdList[0])
 
@@ -146,6 +148,10 @@ func setUpMount() {
 		log.Debugf("Mount tmpfs system success")
 	}
 
-	pivotRoot(pwd) // 修改当前目录为 根目录
+	// 挂载数据卷
+	InitVolume(pwd)
+
+	// 修改当前目录为 根目录
+	pivotRoot(pwd) 
 
 }

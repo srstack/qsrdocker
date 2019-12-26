@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"path"
 	"syscall"
+	"path/filepath"
+	"bufio"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -38,10 +40,72 @@ func NewWorkSpace(imageName, containerID string) error {
 	return nil 
 }
 
+// SetVolume 讲 数据卷信息写入 MountDir/[containerID]/link 文件中
+func SetVolume(containerID string, volumes []string) {
+	// 创建  MountDir/[containerID]/link 文件
+	LinkFile, err := os.Create(path.Join(MountDir, containerID, "link"))
+
+	if err != nil {
+		log.Warnf("Create qsrdocker : %v Link file fail %v", containerID, err)
+	}
+
+	defer LinkFile.Close()
+
+	// 追加进入 BindVolumeInfo
+	for _, volume := range volumes {
+		if volume != "" {
+			// host volume : guest volume
+			volumePaths := strings.Split(volume, ":")
+			length := len(volumePaths)
+
+			if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
+				
+				volumePaths[0], err = filepath.Abs(volumePaths[0])
+
+				if err != nil {
+					log.Warnf("Get Source Abs Path fail")
+					// 无法获取绝对路径，则跳过本次循环
+					continue 
+				} else {
+					log.Debugf("Get Source Abs Path %v", volumePaths[0])
+				}
+
+				// src:dst\n
+				BindInfo := strings.Join(volumePaths, ":")
+				BindInfo = strings.Join([]string{BindInfo,"\n"}, "")
+
+				LinkFile.WriteString(BindInfo)
+
+			} else {
+				log.Warnf("Volume parameter input is not correct : %v", volumePaths)
+			}
+		}
+	}
+}
+
+
+
 // InitVolume  数据卷挂载
 // 需要在 mount namespace 修改后(unshared) 才进行 Mount Bind 挂载 
-func InitVolume(containerID string, volumes []string) {
-	for _, volume := range volumes {
+func InitVolume(CurrDir string) {
+
+	// 通过 pwd 当前目录 /MountDir/[containerID]/merge 获取
+	// 先获取 Dir /MountDir/[containerID] 再 获取 base containerID
+	containerID :=  filepath.Base(filepath.Dir(CurrDir))
+	
+	Linkfile, err := os.Open(path.Join(MountDir,containerID, "link"))
+	
+    if err != nil {
+        log.Warnf("Can't open link file: %v, err: %v", Linkfile, err)
+	}
+	
+    defer Linkfile.Close()
+
+	// 按行读取
+    scanner := bufio.NewScanner(Linkfile)
+    for scanner.Scan() {
+        volume := scanner.Text()
+
 		if volume != "" {
 			// host volume : guest volume
 			volumePaths := strings.Split(volume, ":")
@@ -53,7 +117,7 @@ func InitVolume(containerID string, volumes []string) {
 				MountBindVolume(volumePaths, containerID)
 
 			} else {
-				log.Warnf("Volume parameter input is not correct")
+				log.Warnf("Volume Set is not correct")
 			}
 		}
 	}
@@ -64,7 +128,7 @@ func MountBindVolume(volumePaths []string, containerID string) {
 
 	// host 卷
 	// 不存在则创建
-	hostPath := volumePaths[0]
+	hostPath, _ := filepath.Abs(volumePaths[0])
 
 	// 检查目标是否存在
 	// 不存在默认创建为目录
@@ -249,23 +313,23 @@ func CreateMountPoint(containerID , imageID string) error {
 }
 
 // DeleteWorkSpace 解除容器在工作目录上的挂载，当容器退出时
-func DeleteWorkSpace(containerID string, volumes []string) error {
-
+// func DeleteWorkSpace(containerID string, volumes []string) error {
+func DeleteWorkSpace(containerID string) error {
 	// 解除 Mount bind 挂载
-	for _, volume := range volumes {
-		if volume != "" {
-			// host volume : guest volume
-			volumePaths := strings.Split(volume, ":")
-			length := len(volumePaths)
+	// 容器进程退出后，直接解除挂载
+	// for _, volume := range volumes {
+	// 	if volume != "" {
+	// 		// host volume : guest volume
+	// 		volumePaths := strings.Split(volume, ":")
+	// 		length := len(volumePaths)
 
-			if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
+	// 		if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
 
-				// 数据卷实现
-				UnMountBind(containerID, volumePaths)
-			} 
-		}
-	}
-
+	// 			// 数据卷实现
+	// 			UnMountBind(containerID, volumePaths)
+	// 		} 
+	// 	}
+	// }
 
 	// 解除 overlay2 挂载
 	if err := UnMountPoint(containerID); err != nil {
@@ -314,7 +378,6 @@ func UnMountPoint(containerID string) error {
 
 	return nil
 }
-
 
 // DeleteDockerDir 删除容器数据
 func DeleteDockerDir(containerID string) error {

@@ -1,14 +1,16 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
+	"math/rand"
+	"time"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/srstack/qsrdocker/container"
 	"github.com/srstack/qsrdocker/cgroups/subsystems"
 	"github.com/srstack/qsrdocker/cgroups"
-	"math/rand"
-	"time"
 )
 
 // QsrdockerRun Docker守护进程启动
@@ -37,9 +39,9 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 		log.Error(err)
 	}
 
-	// 创建 mount bind 数据卷 挂载
-	container.InitVolume(containerID, volumes)
-	log.Debugf("InitVolume qsrdocker %v success", containerID)
+	// 创建 mount bind 数据卷 挂载 信息文件
+	container.SetVolume(containerID, volumes)
+	log.Debugf("SetVolume qsrdocker %v Info file", containerID)
 
 	// 创建 cgroup_manager
 	cgroupManager := cgroups.NewCgroupManager(containerID)
@@ -62,7 +64,8 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 		// 进程退出 exit
 
 		// 删除工作目录
-		if err := container.DeleteWorkSpace(containerID, volumes); err != nil {
+		//if err := container.DeleteWorkSpace(containerID, volumes); err != nil {
+		if err := container.DeleteWorkSpace(containerID); err != nil {
 			log.Errorf("Error: %v", err)
 		}
 	} 
