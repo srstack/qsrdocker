@@ -2,24 +2,28 @@ package container
 
 import (
 	"os"
+	"strings"
+	"fmt"
 	"os/exec"
 	"syscall"
-	log "github.com/sirupsen/logrus"
 	"path"
+	"io/ioutil"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
 	RootDir					string = "/var/qsrdocker"
 	ImageDir				string = "/var/qsrdocker/image"
 	// MountDir imagedir  imageName : imageID 的映射, 将映射写在 image.json文件中
-	MountDir				string = "/var/qsrdocker/mnt"
+	MountDir				string = "/var/qsrdocker/overlay2"
 )
 
 // NewParentProcess 创建 runC 的守护进程
 func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.File) {
 
 	/*
-		1. 第一个参数为初始化 init RunCotainerInitProcess
+		1. 第一个参数为初始化 init RunContainerInitProcess
 		2. 通过系统调用 exec 运行 init 初始化 qsrdocker
 			执行当前 filename 对应的程序，并且当前进程的镜像、数据和堆栈信息
 			重新启动一个新的程序/覆盖当前进程
@@ -44,6 +48,10 @@ func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.F
 	gid := syscall.Getgid()
 
 	log.Debugf("Get qsrdocker : %v uid : %v ; gid : %v", containerID, uid, gid)
+
+	if err = InitUserNamespace(); err != nil {
+		log.Fatalf("UserNamespace err : %v", err)
+	}
 
 	// 设置namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -109,4 +117,37 @@ func NewPipe() (*os.File, *os.File, error) {
 		return nil, nil, err
 	}
 	return read, write, nil
+}
+
+// InitUserNamespace 初始化 User Ns 
+// User Ns 默认关闭，需要手动开启
+func InitUserNamespace() error {
+
+	UserNamespacePath := "/proc/sys/user/max_user_namespaces"
+
+	UserNamespaceCountByte, err := ioutil.ReadFile(UserNamespacePath)
+
+	// []byte => string => 去空格 去换行
+	UserNamespaceCount := strings.Replace(strings.Replace(string(UserNamespaceCountByte)," ","", -1), "\n", "", -1)
+
+	// 读取失败
+    if err != nil {
+	   return fmt.Errorf("Can't get UserNamespaceCount in %v error : %v" , UserNamespacePath, err)
+	}
+	
+	
+	
+	if UserNamespaceCount == "0" {
+		if err := ioutil.WriteFile(UserNamespacePath, []byte("15000"), 0644); err != nil {
+			// 写入文件失败则返回 
+			return fmt.Errorf("Can't Set UserNamespaceCount in %v error : %v", UserNamespacePath, err)
+		} 
+		// 成功设置 
+		log.Debugf("Get UserNamespaceCount 15000 in %v", UserNamespacePath)
+		return nil
+	}
+	
+	log.Debugf("Get UserNamespaceCount : %v in %v", UserNamespaceCount, UserNamespacePath)
+	
+	return nil
 }

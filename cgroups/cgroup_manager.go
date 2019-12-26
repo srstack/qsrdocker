@@ -2,6 +2,7 @@ package cgroups
 
 import (
 	log "github.com/sirupsen/logrus"
+
 	"github.com/srstack/qsrdocker/cgroups/subsystems"
 )
 
@@ -46,7 +47,7 @@ func (c *CgroupManager) Set(resCongfig *subsystems.ResourceConfig) {
 	}
 }
 
-// Destroy 释放挂载的Cgrpup 对应 Remove
+// Destroy 释放挂载的Cgroup 对应 Remove
 func (c *CgroupManager) Destroy() {
 	for _, subSystemIn := range subsystems.SubsystemsIns {
 		if err := subSystemIn.Remove(c.Path, subSystemIn.Name()); err != nil {

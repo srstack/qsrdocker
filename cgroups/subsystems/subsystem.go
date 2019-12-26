@@ -6,8 +6,10 @@ import (
 	"os"
 	"path"
 	"strconv"
-	log "github.com/sirupsen/logrus"
 	"runtime"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/srstack/numaer"
 )
 
@@ -86,7 +88,7 @@ func (s *SubsystemType) GetCgroupFile(subsystemName string) string {
 func (s *SubsystemType) Init(subsystemName string) error {
 	
 	// cgroupRoot 初始化根目录
-	cgroupRoot := FindCgroupMointpoint(subsystemName)
+	cgroupRoot := FindCgroupMountpoint(subsystemName)
 	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")
 
 	// 创建 subsystem

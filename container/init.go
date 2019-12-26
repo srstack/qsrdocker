@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
 	log "github.com/sirupsen/logrus"
 )
 
 
-// RunCotainerInitProcess 创建真正的容器进程
-func RunCotainerInitProcess() error {
-	
+// RunContainerInitProcess 创建真正的容器进程
+func RunContainerInitProcess() error {
 	// 获取用户输入
 	cmdList := readUserCmd()
 
@@ -23,7 +23,6 @@ func RunCotainerInitProcess() error {
 	if len(cmdList) == 1 && cmdList[0] == "" {
 		return fmt.Errorf("Run container get user command error, command is nil")
 	}
-
 	// 设置挂载点
 	setUpMount()
 
@@ -114,7 +113,7 @@ func pivotRoot(root string) error {
 }
 
 // init 挂载点
-// setUpMount 在 RunCotainerInitProcess 中执行
+// setUpMount 在 RunContainerInitProcess 中执行
 func setUpMount() {
 
 	// 获取当前路径
@@ -135,8 +134,17 @@ func setUpMount() {
 	defaultMountFlages := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 
 	// mount -t proc proc /proc
-	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlages), "")
+	if err := syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlages), ""); err != nil {
+		log.Warnf("Mount proc system fail : %v", err)
+	} else {
+		log.Debugf("Mount proc system success")
+	}
 	
 	// 挂载内存文件系统 tmpfs 
-	syscall.Mount("tmpfs", "/dev", "tempfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755")
+	if err := syscall.Mount("tmpfs", "/dev", "tempfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755"); err != nil {
+		log.Warnf("Mount tmpfs system fail : %v", err)
+	} else {
+		log.Debugf("Mount tmpfs system success")
+	}
+
 }

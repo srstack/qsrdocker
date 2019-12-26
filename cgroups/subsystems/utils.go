@@ -6,11 +6,12 @@ import (
 	"os"
 	"path"
 	"strings"
+
 	log "github.com/sirupsen/logrus"
 )
 
-// FindCgroupMointpoint 在 /proc/self/mountinfo 中找到关于 cgroup 挂载信息，获得挂载点根目录
-func FindCgroupMointpoint(subsystem string) string {
+// FindCgroupMountpoint 在 /proc/self/mountinfo 中找到关于 cgroup 挂载信息，获得挂载点根目录
+func FindCgroupMountpoint(subsystem string) string {
 	f, err := os.Open("/proc/self/mountinfo")
 	// mountinfo 文件包含了目标进程的相关挂载信息
 	// 如：
@@ -46,7 +47,7 @@ func FindCgroupMointpoint(subsystem string) string {
 // GetCgroupPath 得到 cgroup 在虚拟文件系统中的绝对路径
 func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string, error) {
 	// 获得cgroup根目录路径
-	cgroupRoot := FindCgroupMointpoint(subsystem)
+	cgroupRoot := FindCgroupMountpoint(subsystem)
 	// 若cgroupRoot为空，则以 CgroupPath 为 subsystem 路径
 
 	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")

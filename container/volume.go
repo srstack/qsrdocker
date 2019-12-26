@@ -1,7 +1,6 @@
 package container
 
 import (
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"strings"
@@ -9,6 +8,9 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"path"
+	"syscall"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // NewWorkSpace 创建容器文件系统
@@ -18,7 +20,7 @@ func NewWorkSpace(imageName, containerID string) error {
 	imageID := GetImageID(imageName)
 
 	// 包含三个部分
-	// lmage layer 层
+	// image layer 层
 	if err := CreateReadOnlyLayer(imageID); err != nil {
 		return fmt.Errorf("Can't create %v image error : %v", imageID, err)
 	}
@@ -37,7 +39,7 @@ func NewWorkSpace(imageName, containerID string) error {
 }
 
 // InitVolume  数据卷挂载
-// 需要在 mount namespace 修改后(unshard) 才进行 Mount Bind 挂载 
+// 需要在 mount namespace 修改后(unshared) 才进行 Mount Bind 挂载 
 func InitVolume(containerID string, volumes []string) {
 	for _, volume := range volumes {
 		if volume != "" {
@@ -134,7 +136,7 @@ func CreateReadOnlyLayer(imageID string) error {
 
 		// 若镜像文件不存在 则直接退出
 		if !imageexist {
-			return fmt.Errorf("%v iamge is not exist", ImageTarPath)
+			return fmt.Errorf("%v image is not exist", ImageTarPath)
 		}
 
 		// 若不存在 则创建该目录 mkdir -p
@@ -147,13 +149,13 @@ func CreateReadOnlyLayer(imageID string) error {
 
 		// 解压 镜像压缩 文件
 		if _, err := exec.Command("tar", "-xvf", ImageTarPath, "-C", ImageTarDir).CombinedOutput(); err != nil {
-			log.Errorf("Tar iamge.tar to dir %v error %v", ImageTarDir, err)
+			log.Errorf("Tar image.tar to dir %v error %v", ImageTarDir, err)
 			return err
 		}
 
 		log.Debugf("Tar %v successful ", ImageTarPath)
 
-		// 删除镜像压缩文件
+		// 删除镜像压缩文件a
 		if err := os.RemoveAll(ImageTarPath); err != nil {
 			log.Debugf("Remove ImageTarPath %s error %v", ImageTarPath, err)
 			return err
@@ -284,11 +286,10 @@ func DeleteWorkSpace(containerID string, volumes []string) error {
 // UnMountBind : 解除 Mount bind 挂载
 func UnMountBind(containerID string ,volumePaths []string) error {
 	// 挂载点
-	mountPath := path.Join(MountDir, containerID, volumePaths[1])
+	mountPath := path.Join(MountDir, containerID,"merged" ,volumePaths[1])
 
 	// 解除挂载
-	_, err := exec.Command("umount", mountPath).CombinedOutput()
-	if err != nil {
+	if err := syscall.Unmount(mountPath, syscall.MNT_DETACH); err != nil {
 		log.Errorf("Umount Bind %s error %v", mountPath, err)
 		return err
 	}
@@ -304,8 +305,7 @@ func UnMountPoint(containerID string) error {
 	mountPath := path.Join(MountDir, containerID, "merged")
 	
 	// 解除挂载
-	_, err := exec.Command("umount", mountPath).CombinedOutput()
-	if err != nil {
+	if err := syscall.Unmount(mountPath, syscall.MNT_DETACH); err != nil {
 		log.Errorf("Umount overlay2 %s error %v", mountPath, err)
 		return err
 	}

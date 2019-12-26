@@ -2,11 +2,12 @@ package main
 
 import (
 	"os"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
-const usage = ` qsrdocekr is a simple container runtime implementation.`
+const usage = ` qsrdoceker is a simple container runtime implementation.`
 
 func main() {
 	/*

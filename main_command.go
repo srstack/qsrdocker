@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
-	"github.com/srstack/qsrdocker/container"
 	"github.com/urfave/cli"
+
+	"github.com/srstack/qsrdocker/container"
 	"github.com/srstack/qsrdocker/cgroups/subsystems"
 )
 
-// run 命令定义函数的Flges，可使用 -- 指定参数
+// run 命令定义函数的Flge，可使用 -- 指定参数
 var runCmd = cli.Command{
 	Name: "run",
 	Usage: `Create a container with namespace and cgroup, docker run -ti [-m] [...] [image] [command]`,
@@ -83,7 +85,7 @@ var runCmd = cli.Command{
 		volumes := context.StringSlice("v")
 
 		if tty && detach {
-			return fmt.Errorf("ti and d paramter can not both provided")
+			return fmt.Errorf("ti and d parameter can not both provided")
 		}
 
 		log.Debugf("Enable tty %v", tty)
@@ -116,10 +118,10 @@ var initCmd = cli.Command{
 		1. 获取传递过来的 参数
 		2. 执行容器初始化
 	*/
-	
+
 	Action: func(context *cli.Context) error {
 		log.Debugf("init qsrdocker")
-		err := container.RunCotainerInitProcess()
+		err := container.RunContainerInitProcess()
 		return err
 	},
 }
