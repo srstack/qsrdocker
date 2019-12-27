@@ -152,8 +152,8 @@ func MountBindVolume(volumePaths []string, containerID string) {
 	CheckPath(hostPath, guestIsFile)
 	
 
-	// 判断 hostPath 是否为目录且为空
-	if !IsFile(hostPath) && IsEmptyDir(hostPath) {
+	// 判断 hostPath 是否为目录且为空  guest 目录不为空
+	if !IsFile(hostPath) && IsEmptyDir(hostPath) && !IsFile(containerVolumePtah) && !IsEmptyDir(containerVolumePtah) {
 
 		log.Warnf("Host volume %v is empty, will copy data from guest volume", hostPath)
 
