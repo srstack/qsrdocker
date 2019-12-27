@@ -152,12 +152,14 @@ func MountBindVolume(volumePaths []string, containerID string) {
 
 		log.Warnf("Host volume %v is empty, will copy data from guest volume", hostPath)
 
+		cmd := strings.Join([]string{"cp -a", strings.Join([]string{containerVolumePtah,"/*"}, ""), hostPath}, " ")
+
 		// 将 guest 目录中的数据 拷贝到 host 目录 数据卷中
-		_, err := exec.Command("cp", "-a", strings.Join([]string{containerVolumePtah,"/*"}, ""), hostPath).CombinedOutput()
+		_, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 		if err != nil {
-			log.Warnf("Copy file from %v to %v failed. %v", containerVolumePtah, hostPath, err)
+			log.Warnf("Copy file from %v to %v failed. %v", strings.Join([]string{containerVolumePtah,"/*"}, ""), hostPath, err)
 		} else {
-			log.Debugf("Copy file from %v to %v success", containerVolumePtah, hostPath)
+			log.Debugf("Copy file from %v to %v success", strings.Join([]string{containerVolumePtah,"/*"}, ""), hostPath)
 		}
 	}
 
@@ -440,6 +442,29 @@ func GetImageID(ImageName string) string {
 	return ImageName
 }
 
+// CheckPath 检测路径状态
+func CheckPath(path string) {
+	exist, err := PathExists(path)
+
+	if err != nil {
+		log.Warnf("Can't judge %v status", path)
+	}
+	
+	if !exist {
+		// Waring 等级 日志
+		// 默认自动创建目录 
+		log.Warnf("Dst Ptah %v is not exits", path)
+
+		// 创建 host volume 目录
+		if err := os.MkdirAll(path, 0777); err != nil {
+			log.Warnf("Mkdir path %v error : %v", path, err)
+		} else {
+			// 创建 host volume 成功
+			log.Debugf("Mkdir path %v success", path)
+		}
+	}
+}
+
 // IsEmptyDir ： 判断是否为 空 目录
 func IsEmptyDir(path string) (bool) {
 	// os.File.Readdir == ioutil.ReadDir
@@ -470,27 +495,4 @@ func IsFile(path string) bool {
         return false
     }
     return !fi.IsDir()
-}
-
-// CheckPath 检测路径状态
-func CheckPath(path string) {
-	exist, err := PathExists(path)
-
-	if err != nil {
-		log.Warnf("Can't judge %v status", path)
-	}
-	
-	if !exist {
-		// Waring 等级 日志
-		// 默认自动创建目录 
-		log.Warnf("Dst Ptah %v is not exits", path)
-
-		// 创建 host volume 目录
-		if err := os.MkdirAll(path, 0777); err != nil {
-			log.Warnf("Mkdir path %v error : %v", path, err)
-		} else {
-			// 创建 host volume 成功
-			log.Debugf("Mkdir path %v success", path)
-		}
-	}
 }
