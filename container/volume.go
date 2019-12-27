@@ -130,10 +130,6 @@ func MountBindVolume(volumePaths []string, containerID string) {
 	// 不存在则创建
 	hostPath, _ := filepath.Abs(volumePaths[0])
 
-	// 检查目标是否存在
-	// 不存在默认创建为目录
-	CheckPath(hostPath)
-
 	// guest 卷
 	containerPath := volumePaths[1]
 
@@ -142,9 +138,18 @@ func MountBindVolume(volumePaths []string, containerID string) {
 	// 容器 megred 层为挂载点
 	containerVolumePtah := path.Join(mntPath, containerPath)
 
+
+	// 判断 host path guest path 是否为文件
+	guestIsFile := IsFile(containerVolumePtah)
+	hostIsFile := IsFile(hostPath)
+	
 	// 判断 guest path 是否存在
 	// 不存在则默认创建为目录
-	CheckPath(containerVolumePtah)
+	CheckPath(containerVolumePtah, hostIsFile)
+
+	// 检查目标是否存在
+	// 不存在默认创建为目录
+	CheckPath(hostPath, guestIsFile)
 	
 
 	// 判断 hostPath 是否为目录且为空
@@ -443,7 +448,7 @@ func GetImageID(ImageName string) string {
 }
 
 // CheckPath 检测路径状态
-func CheckPath(path string) {
+func CheckPath(path string, isFile bool) {
 	exist, err := PathExists(path)
 
 	if err != nil {
@@ -453,16 +458,38 @@ func CheckPath(path string) {
 	if !exist {
 		// Waring 等级 日志
 		// 默认自动创建目录 
-		log.Warnf("Dst Ptah %v is not exits", path)
+		log.Warnf("Ptah %v is not exists", path)
+		
+		// 若 isFile is true 则创建文件
+		if isFile {
+			// 先创建 目录
+			if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+				log.Warnf("Mkdir path dir %v error : %v", filepath.Dir(path), err)
+			} else {
+				// 创建 volume 成功
+				log.Debugf("Mkdir path dir %v success", filepath.Dir(path))
+			}
 
-		// 创建 host volume 目录
-		if err := os.MkdirAll(path, 0777); err != nil {
-			log.Warnf("Mkdir path %v error : %v", path, err)
+			file, err := os.Create(path)
+			if err != nil {
+				log.Warnf("Touch path %v error : %v", path, err)
+			}
+			
+			// 成功创建 bind mount 文件
+			log.Debugf("Touch path %v success", path)
+			file.Close()
+
 		} else {
-			// 创建 host volume 成功
-			log.Debugf("Mkdir path %v success", path)
+			// 创建 volume 目录
+			if err := os.MkdirAll(path, 0777); err != nil {
+				log.Warnf("Mkdir path %v error : %v", path, err)
+			} else {
+				// 创建 volume 成功
+				log.Debugf("Mkdir path %v success", path)
+			}
 		}
 	}
+	log.Debugf("Ptah %v is exists", path)
 }
 
 // IsEmptyDir ： 判断是否为 空 目录
