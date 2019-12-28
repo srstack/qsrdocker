@@ -17,7 +17,7 @@ func main() {
 	qsrdocker.Name = "qsrdocker"
 	qsrdocker.UsageText = usage
 	qsrdocker.Usage = usage
-	qsrdocker.Version = "0.1.2"
+	qsrdocker.Version = "1.0.0"
 
 	// 定义cli的runCmd initCmd
 	qsrdocker.Commands = []cli.Command{
