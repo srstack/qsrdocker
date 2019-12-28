@@ -13,7 +13,8 @@ import (
 // run 命令定义函数的Flge，可使用 -- 指定参数
 var runCmd = cli.Command{
 	Name: "run",
-	Usage: `Create a container with namespace and cgroup, docker run -ti [-m] [...] [image] [command]`,
+	Usage: `Create a container with namespace and cgroup`,
+	ArgsUsage: "[imageName] [command]",
 
 	Flags: []cli.Flag{
 
@@ -130,7 +131,8 @@ var initCmd = cli.Command{
 // 分层镜像特性实现
 var commitCmd = cli.Command {
 	Name: "commit",
-	Usage: "commit a container into image: qsrdocker commit containerName imageName",
+	ArgsUsage: "[containerName] [imageName]",
+	Usage: "commit a container into image",
 	Action: func(context *cli.Context) error {
 
 		// 判断输入是否正确
