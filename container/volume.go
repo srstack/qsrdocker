@@ -19,7 +19,11 @@ import (
 func NewWorkSpace(imageName, containerID string) error {
 
 	// 获取 image id 
-	imageID := GetImageID(imageName)
+	imageLower := GetImageLower(imageName)
+
+	imageID := strings.Split(imageLower,":")[0]
+
+	log.Debugf("Get image ID is : %v", imageID)
 
 	// 包含三个部分
 	// image layer 层
@@ -34,7 +38,7 @@ func NewWorkSpace(imageName, containerID string) error {
 	}
 
 	// container mount 层
-	if err := CreateMountPoint(containerID, imageID); err != nil {
+	if err := CreateMountPoint(containerID, imageLower); err != nil {
 		return fmt.Errorf("Can't create %v mount layer error %v", containerID, err)
 	}
 	return nil 
@@ -43,13 +47,13 @@ func NewWorkSpace(imageName, containerID string) error {
 // SetVolume 讲 数据卷信息写入 MountDir/[containerID]/link 文件中
 func SetVolume(containerID string, volumes []string) {
 	// 创建  MountDir/[containerID]/link 文件
-	LinkFile, err := os.Create(path.Join(MountDir, containerID, "link"))
+	linkFile, err := os.Create(path.Join(MountDir, containerID, "link"))
 
 	if err != nil {
-		log.Warnf("Create qsrdocker : %v Link file fail %v", containerID, err)
+		log.Warnf("Create qsrdocker : %v link file fail %v", containerID, err)
 	}
 
-	defer LinkFile.Close()
+	defer linkFile.Close()
 
 	// 追加进入 BindVolumeInfo
 	for _, volume := range volumes {
@@ -71,10 +75,10 @@ func SetVolume(containerID string, volumes []string) {
 				}
 
 				// src:dst\n
-				BindInfo := strings.Join(volumePaths, ":")
-				BindInfo = strings.Join([]string{BindInfo,"\n"}, "")
+				bindInfo := strings.Join(volumePaths, ":")
+				bindInfo = strings.Join([]string{bindInfo,"\n"}, "")
 
-				LinkFile.WriteString(BindInfo)
+				linkFile.WriteString(bindInfo)
 
 			} else {
 				log.Warnf("Volume parameter input is not correct : %v", volumePaths)
@@ -82,8 +86,6 @@ func SetVolume(containerID string, volumes []string) {
 		}
 	}
 }
-
-
 
 // InitVolume  数据卷挂载
 // 需要在 mount namespace 修改后(unshared) 才进行 Mount Bind 挂载 
@@ -93,16 +95,16 @@ func InitVolume(CurrDir string) {
 	// 先获取 Dir /MountDir/[containerID] 再 获取 base containerID
 	containerID :=  filepath.Base(filepath.Dir(CurrDir))
 	
-	Linkfile, err := os.Open(path.Join(MountDir,containerID, "link"))
+	linkfile, err := os.Open(path.Join(MountDir,containerID, "link"))
 	
     if err != nil {
-        log.Warnf("Can't open link file: %v, err: %v", Linkfile, err)
+        log.Warnf("Can't open link file: %v, err: %v", linkfile, err)
 	}
 	
-    defer Linkfile.Close()
+    defer linkfile.Close()
 
 	// 按行读取
-    scanner := bufio.NewScanner(Linkfile)
+    scanner := bufio.NewScanner(linkfile)
     for scanner.Scan() {
         volume := scanner.Text()
 
@@ -133,10 +135,10 @@ func MountBindVolume(volumePaths []string, containerID string) {
 	// guest 卷
 	containerPath := volumePaths[1]
 
-	mntPath := path.Join(MountDir, containerID, "merged")
+	mountPath := path.Join(MountDir, containerID, "merged")
 
 	// 容器 megred 层为挂载点
-	containerVolumePtah := path.Join(mntPath, containerPath)
+	containerVolumePtah := path.Join(mountPath, containerPath)
 
 
 	// 判断 host path guest path 是否为文件
@@ -180,16 +182,16 @@ func MountBindVolume(volumePaths []string, containerID string) {
 // CreateReadOnlyLayer  解压 image.tar 到 镜像存放目录
 func CreateReadOnlyLayer(imageID string) error {
 	// 解压目录
-	ImageTarDir := path.Join(ImageDir, imageID)
+	imageTarDir := path.Join(ImageDir, imageID)
 
 	// 镜像压缩文件路径
-	ImageTarPath := strings.Join([]string{ImageDir, "/", imageID, ".tar"}, "")
+	imageTarPath := strings.Join([]string{ImageDir, "/", imageID, ".tar"}, "")
 
 	// 判断是否存在镜像目录
-	exist, err := PathExists(ImageTarDir)
+	exist, err := PathExists(imageTarDir)
 
 	if err != nil {
-		log.Errorf("Fail to judge whether dir %s exists.", ImageTarDir)
+		log.Errorf("Fail to judge whether dir %s exists.", imageTarDir)
 		return err
 	}
 
@@ -198,49 +200,49 @@ func CreateReadOnlyLayer(imageID string) error {
 	if !exist {
 
 		// 判断镜像压缩文件是否存在
-		imageexist, err := PathExists(ImageTarPath)
+		imageexist, err := PathExists(imageTarPath)
 
 		if err != nil {
-			log.Errorf("Fail to judge whether dir %s exists.", ImageTarPath)
+			log.Errorf("Fail to judge whether dir %s exists.", imageTarPath)
 			return err
 		}
 
 		// 若镜像文件不存在 则直接退出
 		if !imageexist {
-			return fmt.Errorf("%v image is not exist", ImageTarPath)
+			return fmt.Errorf("%v image is not exist", imageTarPath)
 		}
 
 		// 若不存在 则创建该目录 mkdir -p
-		if err := os.MkdirAll(ImageTarDir, 0622); err != nil {
-			log.Errorf("Mkdir %s error %v", ImageTarDir, err)
+		if err := os.MkdirAll(imageTarDir, 0622); err != nil {
+			log.Errorf("Mkdir %s error %v", imageTarDir, err)
 			return err
 		}
 
-		log.Debugf("Mkdir %v successful ", ImageTarDir)
+		log.Debugf("Mkdir %v successful ", imageTarDir)
 
 		// 解压 镜像压缩 文件
-		if _, err := exec.Command("tar", "-xvf", ImageTarPath, "-C", ImageTarDir).CombinedOutput(); err != nil {
-			log.Errorf("Tar image.tar to dir %v error %v", ImageTarDir, err)
+		if _, err := exec.Command("tar", "-xvf", imageTarPath, "-C", imageTarDir).CombinedOutput(); err != nil {
+			log.Errorf("Tar image.tar to dir %v error %v", imageTarDir, err)
 			return err
 		}
 
-		log.Debugf("Tar %v successful ", ImageTarPath)
+		log.Debugf("Tar %v successful ", imageTarPath)
 
 		// 删除镜像压缩文件a
-		if err := os.RemoveAll(ImageTarPath); err != nil {
-			log.Debugf("Remove ImageTarPath %s error %v", ImageTarPath, err)
+		if err := os.RemoveAll(imageTarPath); err != nil {
+			log.Debugf("Remove ImageTarPath %s error %v", imageTarPath, err)
 			return err
 		}
 
-		log.Debugf("Remove %v successful ", ImageTarPath)
+		log.Debugf("Remove %v successful ", imageTarPath)
 	}
 
 	// 确定镜像存在
-	if IsEmptyDir(ImageTarDir) {
-		return fmt.Errorf("Can't find image file in %v ", ImageTarDir)
+	if IsEmptyDir(imageTarDir) {
+		return fmt.Errorf("Can't find image file in %v ", imageTarDir)
 	}
 
-	log.Debugf("Find %v image in %v successful ", imageID, ImageTarDir)
+	log.Debugf("Find %v image in %v successful ", imageID, imageTarDir)
 
 	return nil
 }
@@ -263,7 +265,7 @@ func CreateWriteLayer(containerID string) error {
 }
 
 // CreateMountPoint 创建挂载点，采用 overlay2 文件系统
-func CreateMountPoint(containerID , imageID string) error {
+func CreateMountPoint(containerID , imageLower string) error {
 
 	mergedDir := path.Join(MountDir, containerID, "merged")
 
@@ -287,9 +289,42 @@ func CreateMountPoint(containerID , imageID string) error {
 
 	log.Debugf("Create mount work dir : %v", workDir)
 
-	// lowerdir： 这里的镜像应该是需要分层特性的... 后续改进... 
-	// 目前lowerdir 就一层...
-	lowerDir := path.Join(ImageDir , imageID)
+	// lowerdir： 镜像的分层特性
+	// imageLower :   imageID:imageID:imageID
+	imageLowerSlice := strings.Split(imageLower,":")
+	imageLowerSliceLen := len(imageLowerSlice)
+	
+	// lowerDir overlay2 ro层
+	var lowerDir string
+
+	// 获取lower
+	for i, imageID := range imageLowerSlice {
+
+		// 判断是否为最后一层
+		if i == imageLowerSliceLen-1 {
+			lowerDir = strings.Join([]string{lowerDir, path.Join(ImageDir , imageID)}, "")
+		} else {
+			lowerDir = strings.Join([]string{lowerDir, path.Join(ImageDir , imageID), ":"}, "")
+		}
+	}
+
+	log.Debugf("Get lowerdir : %v", lowerDir)
+
+	// 将 lower 信息写入 /MountDir/[containerID]/lower
+	lowerFile, err := os.Create(path.Join(MountDir, containerID, "lower"))
+
+	if err != nil {
+		log.Warnf("Create qsrdocker : %v lower file fail %v", containerID, err)
+	}
+
+	lowerFile.WriteString(imageLower)
+
+	log.Debugf("Write lower info in lower file success")
+
+	// 关闭文件
+	lowerFile.Close()
+	
+
 	upperDir := path.Join(MountDir, containerID, "diff")
 	// workdir必须和upperdir是mount在同一个文件系统下， 而lower不是必须的
 
@@ -307,7 +342,7 @@ func CreateMountPoint(containerID , imageID string) error {
 
 	// mount -t overlay overlay -o lowerdir=./lower,upperdir=./upper,workdir=./work ./merged
 	// func (c *Cmd) CombinedOutput() ([]byte, error)　//运行命令，并返回标准输出和标准错误
-	_, err := exec.Command("mount", "-t", "overlay", "overlay", "-o", mountCmd, mergedDir).CombinedOutput()
+	_, err = exec.Command("mount", "-t", "overlay", "overlay", "-o", mountCmd, mergedDir).CombinedOutput()
 
 	if err != nil {
 		log.Errorf("Run command for creating mount point failed %v", err)
@@ -405,46 +440,72 @@ func DeleteDockerDir(containerID string) error {
 }
 
 
-// GetImageID : 获取 镜像名与镜像ID 映射关系的配置问件
-func GetImageID(ImageName string) string {
+// GetImageLower : 获取 镜像名与镜像ID 映射关系的配置文件
+func GetImageLower(imageNameTag string) string {
+	// imagename imagetag
+	var imageName string
+	var imageTag string
+
+	// imagename:tag 按 : 分割
+	imageNameTagSlice := strings.Split(imageNameTag, ":")
+
+	// 没有 tag 则默认使用 last
+	if len(imageNameTagSlice) == 2 {
+		imageName = imageNameTagSlice[0]
+		imageTag = imageNameTagSlice[1]
+	} else {
+		imageName = imageNameTagSlice[0]
+		imageTag = "last"
+	}
+
+	log.Debugf("Get image name is %v", imageName)
+	log.Debugf("Get image tag is %v", imageTag)
 
 	// 创建反序列化载体
-	var ImageConfig map[string]string
+	var imageConfig map[string]map[string]string
 
 	// 配置文件路径
-	ImageConfigPath := path.Join(ImageDir, "image.json")
+	imageConfigPath := path.Join(ImageDir, "image.json")
 
-	exist, err := PathExists(ImageConfigPath)
+	exist, err := PathExists(imageConfigPath)
 
 	// 配置文件不存在时直接返回imageName
 	if err != nil || !exist {
 
-		log.Errorf("%v imageConfig is not exits", ImageConfigPath)
-		return ImageName
+		log.Errorf("%v imageConfig is not exits", imageConfigPath)
+		return imageName
 	}
 
 	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
-	data, err := ioutil.ReadFile(ImageConfigPath)
+	data, err := ioutil.ReadFile(imageConfigPath)
 	if err != nil {
-		log.Errorf("imageConfig Can't open imageConfig : %v", ImageConfigPath)
-		return ImageName
+		log.Errorf("imageConfig Can't open imageConfig : %v", imageConfigPath)
+		return imageName
 	}
 
 	//读取的数据为json格式，需要进行解码
-	err = json.Unmarshal(data, &ImageConfig)
+	err = json.Unmarshal(data, &imageConfig)
 	if err != nil {
-		log.Debugf("Can't Unmarshal : %v", ImageConfigPath)
-		return ImageName
+		log.Debugf("Can't Unmarshal : %v", imageConfigPath)
+		return imageName
 	}
 
 	// 判断 key 是否存在
-	if _, e := ImageConfig[ImageName]; e {
-		log.Debugf("%v imageID is %v", ImageName, ImageConfig[ImageName])
-		return ImageConfig[ImageName]
+	// 获取镜像ID
+	if _, e := imageConfig[imageName]; e {
+		log.Debugf("Get %v image:tag map is %v", imageName, imageConfig[imageName])
+		
+		if ID, e := imageConfig[imageName][imageTag]; e {
+			log.Debugf("%v imageLower is %v", imageName, imageConfig[imageName][imageTag])
+			return ID
+		}
+
+		log.Errorf("%v imageLower not have tag : %v is not in ImageConfig %v", imageName, imageTag, imageConfigPath)
+		return imageNameTag
 	}
 
-	log.Errorf("%v imageID is not in ImageConfig %v", ImageName, ImageConfigPath)
-	return ImageName
+	log.Errorf("%v imageLower is not in ImageConfig %v", imageName, imageConfigPath)
+	return imageNameTag
 }
 
 // CheckPath 检测路径状态

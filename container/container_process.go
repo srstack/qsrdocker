@@ -13,14 +13,18 @@ import (
 )
 
 var (
+	// RootDir qsrdocker 相关运行文件保存根路径
 	RootDir					string = "/var/qsrdocker"
-	ImageDir				string = "/var/qsrdocker/image"
-	// MountDir imagedir  imageName : imageID 的映射, 将映射写在 image.json文件中
-	MountDir				string = "/var/qsrdocker/overlay2"
+	// ImageDir 镜像文件存放路径
+	ImageDir				string = path.Join(RootDir, "image")
+	// MountDir imageName : imageID 的映射, 将映射写在 image.json文件中
+	MountDir				string = path.Join(RootDir, "overlay2")
+	// ContainerDir 容器信息存放 
+	ContainerDir				string = path.Join(RootDir, "container")
 )
 
 // NewParentProcess 创建 runC 的守护进程
-func NewParentProcess(tty bool, containerID, imageName string) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, containerName, containerID, imageName string) (*exec.Cmd, *os.File) {
 
 	/*
 		1. 第一个参数为初始化 init RunContainerInitProcess
@@ -124,29 +128,29 @@ func NewPipe() (*os.File, *os.File, error) {
 // User Ns 默认关闭，需要手动开启
 func InitUserNamespace() error {
 
-	UserNamespacePath := "/proc/sys/user/max_user_namespaces"
+	userNamespacePath := "/proc/sys/user/max_user_namespaces"
 
-	UserNamespaceCountByte, err := ioutil.ReadFile(UserNamespacePath)
+	userNamespaceCountByte, err := ioutil.ReadFile(userNamespacePath)
 
 	// 读取失败
     if err != nil {
-	   return fmt.Errorf("Can't get UserNamespaceCount in %v error : %v" , UserNamespacePath, err)
+	   return fmt.Errorf("Can't get UserNamespaceCount in %v error : %v" , userNamespacePath, err)
 	}
 	
 	// []byte => string => 去空格 去换行
-	UserNamespaceCount := strings.Replace(strings.Replace(string(UserNamespaceCountByte)," ","", -1), "\n", "", -1)
+	userNamespaceCount := strings.Replace(strings.Replace(string(userNamespaceCountByte)," ","", -1), "\n", "", -1)
 
-	if UserNamespaceCount == "0" {
-		if err := ioutil.WriteFile(UserNamespacePath, []byte("15000"), 0644); err != nil {
+	if userNamespaceCount == "0" {
+		if err := ioutil.WriteFile(userNamespacePath, []byte("15000"), 0644); err != nil {
 			// 写入文件失败则返回 
-			return fmt.Errorf("Can't Set UserNamespaceCount in %v error : %v", UserNamespacePath, err)
+			return fmt.Errorf("Can't Set UserNamespaceCount in %v error : %v", userNamespacePath, err)
 		} 
 		// 成功设置 
-		log.Debugf("Get UserNamespaceCount 15000 in %v", UserNamespacePath)
+		log.Debugf("Get UserNamespaceCount 15000 in %v", userNamespacePath)
 		return nil
 	}
 	
-	log.Debugf("Get UserNamespaceCount : %v in %v", UserNamespaceCount, UserNamespacePath)
+	log.Debugf("Get UserNamespaceCount : %v in %v", userNamespaceCount, userNamespacePath)
 	
 	return nil
 }

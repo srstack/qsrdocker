@@ -27,8 +27,6 @@ func RunContainerInitProcess() error {
 	// 设置根目录挂载点
 	setUpMount()
 
-	
-
 	// 调用 exec.LookPath 在系统的 PATH 中寻找命令的绝对路径
 	absPath, err := exec.LookPath(cmdList[0])
 
@@ -56,7 +54,7 @@ func readUserCmd() []string {
 	cmdByte, err := ioutil.ReadAll(readPipe)
 
 	if err != nil {
-		log.Errorf("get user's cmd error : %v", err)
+		log.Errorf("Get user's cmd error : %v", err)
 		return nil
 	}
 
@@ -83,18 +81,18 @@ func pivotRoot(root string) error {
 	// 创建 rootfs/.pivot_root 存储 old_root
 	pivotDir := filepath.Join(root, ".pivot_root")
 	if err := os.Mkdir(pivotDir, 0777); err != nil {
-		return fmt.Errorf("mkdir rootfs/.pivot_root fail: %v", err)
+		return fmt.Errorf("Mkdir rootfs/.pivot_root fail: %v", err)
 	}
 
 	// 将 pivot 挂载到新的 rootfs
 	// 将 old_root 挂载到 rootfs/.pivot_root
 	if err := syscall.PivotRoot(root, pivotDir); err != nil {
-		return fmt.Errorf("syscall.PivotRoot err : %v", err )
+		return fmt.Errorf("Syscall.PivotRoot err : %v", err )
 	}
 
 	// 修改当前工作目录到根目录
 	if err := syscall.Chdir("/"); err != nil {
-		return fmt.Errorf("change work dir err : %v", err )
+		return fmt.Errorf("Change work dir err : %v", err )
 	}
 	
 	// new_root/.pivot_root
@@ -104,12 +102,12 @@ func pivotRoot(root string) error {
 	// 解挂载
 	// MNT_DETACH 函数执行带有此参数，不会立即执行umount操作，而会等挂载点退出忙碌状态时才会去卸载它
 	if err := syscall.Unmount(pivotDir, syscall.MNT_DETACH); err != nil {
-		return fmt.Errorf("unmount old_root err : %v", err )
+		return fmt.Errorf("Unmount old_root err : %v", err )
 	}
 
 	// 删除已经解除挂载的 old_root 临时文件夹 new_root/.pivot_root
 	if err := os.Remove(pivotDir); err != nil {
-		return fmt.Errorf("remove old_root err : %v", err )
+		return fmt.Errorf("Remove old_root err : %v", err )
 	}
 
 	return nil
@@ -122,7 +120,7 @@ func setUpMount() {
 	// 获取当前路径
 	pwd, err := os.Getwd()
 	if err != nil {
-		log.Warnf("get pwd err : %v", err)
+		log.Warnf("Get pwd err : %v", err)
 	}
 
 	log.Debugf("Current dir is : %v", pwd)
@@ -153,5 +151,4 @@ func setUpMount() {
 
 	// 修改当前目录为 根目录
 	pivotRoot(pwd) 
-
 }

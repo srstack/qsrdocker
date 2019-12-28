@@ -118,13 +118,13 @@ func (s *SubsystemType) Init(subsystemName string) error {
 			// NUMA 
 		if numaer.IsNUMA() {
 			if numNode, err := numaer.NumNode();  err == nil {
-				NodeConf := "0-" + strconv.Itoa(numNode-1) // 全部Node节点
-				if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile("cpumem")), []byte(NodeConf), 0644); err != nil {
+				nodeConf := "0-" + strconv.Itoa(numNode-1) // 全部Node节点
+				if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile("cpumem")), []byte(nodeConf), 0644); err != nil {
 					// 写入文件失败则返回 error set cgroup memory fail
 					return fmt.Errorf("Init cupset.mems %s fail %v", "cpumem", err)
 				} 
 				// 初始化 mems 成功
-				log.Debugf("Init cupset.mems %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), NodeConf)
+				log.Debugf("Init cupset.mems %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), nodeConf)
 			} else {
 				log.Warnf("judge numa node fail, err: %v", err )
 				return fmt.Errorf("Init cupset.mems %s fail %v", "cpumem", err)
@@ -139,22 +139,22 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 
 	// GetCgroupPath 是获取当前VFS中 cgroup 的路径
 	if subsysCgroupPath, err := GetCgroupPath(subsystemName, cgroupPath, true); err == nil {
-		if CgroupConf := s.GetCgroupConf(resConfig, subsystemName); CgroupConf != "" || subsystemName == "cpuset" {
+		if cgroupConf := s.GetCgroupConf(resConfig, subsystemName); cgroupConf != "" || subsystemName == "cpuset" {
 			
 			// 由于在NUMA模式下的问题，当cupset为空时，是无法将pid写入task的，所以默认是不限制，即全部CUP
-			if subsystemName == "cpuset" && CgroupConf == "" {
+			if subsystemName == "cpuset" && cgroupConf == "" {
 				// 获取系统逻辑cpu核数
 				CPUNum := runtime.NumCPU()
-				CgroupConf = "0-" + strconv.Itoa(CPUNum-1) // 全部CPU
+				cgroupConf = "0-" + strconv.Itoa(CPUNum-1) // 全部CPU
 				
 			}
 
 			// 设置 cgroup 的限制，将限制写入对应目录的 xxxxx 中
-			if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(CgroupConf), 0644); err != nil {
+			if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(cgroupConf), 0644); err != nil {
 				// 写入文件失败则返回 error set cgroup memory fail
 				return fmt.Errorf("cgroup %s fail %v", subsystemName, err)
 			}
-			log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), CgroupConf)
+			log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), cgroupConf)
 
 			// 根据 zoneinfo信息判断 是否为 NUMA 模式
 			if _, err := os.Stat("/proc/zoneinfo"); subsystemName == "cpuset" && !os.IsNotExist(err) {

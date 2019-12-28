@@ -125,3 +125,21 @@ var initCmd = cli.Command{
 		return err
 	},
 }
+
+// 导出当前容器生成镜像
+// 分层镜像特性实现
+var commitCmd = cli.Command {
+	Name: "commit",
+	Usage: "commit a container into image: qsrdocker commit containerName imageName",
+	Action: func(context *cli.Context) error {
+
+		// 判断输入是否正确
+		if len(context.Args()) < 2 {
+			return fmt.Errorf("Missing container name and image name")
+		}
+		containerName := context.Args().Get(0)
+		imageName := context.Args().Get(1)
+		CommitContainer(containerName, imageName)
+		return nil
+	},
+}

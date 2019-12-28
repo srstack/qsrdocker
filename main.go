@@ -23,6 +23,7 @@ func main() {
 	qsrdocker.Commands = []cli.Command{
 		initCmd,
 		runCmd,
+		commitCmd,
 	}
 
 	// 设定log配置项
