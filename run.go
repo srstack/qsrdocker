@@ -48,18 +48,20 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 	}
 	
 	// 获取管道通信
-	parent, writePipe := container.NewParentProcess(tty, containerName ,containerID, imageName)
+	containerProcess, writePipe := container.NewParentProcess(tty, containerName ,containerID, imageName)
 
-	if parent == nil || writePipe == nil {
+	if containerProcess == nil || writePipe == nil {
 		log.Errorf("New parent process error")
 		return
 	}
 
 	log.Debugf("Get Qsrdocker : %v parent process and pipe success", containerID)
 
-	if err := parent.Start(); err != nil { // 启动真正的容器进程
+	if err := containerProcess.Start(); err != nil { // 启动真正的容器进程
 		log.Error(err)
 	}
+
+	log.Debugf("Create container process success, pis is %v ", containerProcess.Process.Pid)
 
 	// 创建 mount bind 数据卷 挂载 信息文件
 	container.SetVolume(containerID, volumes)
@@ -67,7 +69,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 
 	// 创建 cgroup_manager
 	cgroupManager := cgroups.NewCgroupManager(containerID)
-	defer cgroupManager.Destroy()
+	// defer cgroupManager.Destroy()
 
 	// 初始化 /sys/fs/cgroup/[subsystem]/qsrdocker
 	cgroupManager.Init()
@@ -76,7 +78,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 	cgroupManager.Set(resCongfig)
 
 	// apply 应用资源(绑定PID至目标task)
-	cgroupManager.Apply(parent.Process.Pid)
+	cgroupManager.Apply(containerProcess.Process.Pid)
 
 	// 将用户命令发送给守护进程 Parent
 	sendInitCommand(cmdList, writePipe)
@@ -85,7 +87,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 	RecordContainerNameInfo(containerName, containerID)
 
 	if tty {
-		parent.Wait()
+		containerProcess.Wait()
 		// 进程退出 exit
 
 		// 删除工作目录
@@ -95,6 +97,8 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 		}
 
 		RemoveContainerNameInfo(containerName, containerID)
+		// 删除 cgroup
+		cgroupManager.Destroy()
 	} 
 
 	// 后台启动不需要 exit 了

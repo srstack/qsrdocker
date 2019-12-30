@@ -86,10 +86,12 @@ var runCmd = cli.Command{
 		volumes := context.StringSlice("v")
 
 		if tty && detach {
-			return fmt.Errorf("ti and d parameter can not both provided")
+			return fmt.Errorf("ti and detach parameter can not both provided")
 		}
 
 		log.Debugf("Enable tty %v", tty)
+
+		log.Debugf("Enable detach %v", detach)
 
 		resConfig := &subsystems.ResourceConfig{
 			MemoryLimit: context.String("m"),

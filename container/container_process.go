@@ -103,6 +103,10 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 	err = NewWorkSpace(imageName, containerID)
 
 	if err != nil {
+		// 若存在问题则删除挂载点目录
+		mountPath := path.Join(MountDir, containerID)
+		os.RemoveAll(mountPath)
+		log.Warnf("Remove mount dir : %v", mountPath)
 		log.Errorf("Can't create docker workspace error : %v", err)
 		return nil, nil
 	}
