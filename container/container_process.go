@@ -10,21 +10,73 @@ import (
 	"io/ioutil"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/srstack/qsrdocker/cgroups"
 )
 
+// 路径相关信息
 var (
 	// RootDir qsrdocker 相关运行文件保存根路径
 	RootDir					string = "/var/qsrdocker"
 	// ImageDir 镜像文件存放路径
 	ImageDir				string = path.Join(RootDir, "image")
-	// MountDir imageName : imageID 的映射, 将映射写在 image.json文件中
+	// MountDir imageName : imageID 的映射, ImageInfoFile 将映射写在文件中
 	MountDir				string = path.Join(RootDir, "overlay2")
 	// ContainerDir 容器信息存放 
 	ContainerDir				string = path.Join(RootDir, "container")
 )
 
+// 文件相关信息
+var (
+	ConfigName          string = "config.json"
+	ContainerLogFile    string = "container.log"
+	ImageInfoFile		string = "repositories.json"
+	ContainerNameFile 	string = "containernames.json"
+	// 默认引擎为 overlay2
+	Driver				string = "overlay2"
+	MountType			string = "bind"
+)
+
+// ContainerInfo 容器基本信息
+type ContainerInfo struct {    
+	ID          string 					`json:"ID"`          	//容器Id
+	Name        string 					`json:"Name"`        	//容器名
+	Command     []string 				`json:"Command"`    	//容器内init运行命令
+	CreatedTime string 					`json:"CreateTime"` 	//创建时间
+	Status      *StatusInfo 			`json:"Status"` 		//容器的状态
+	Driver		string 					`json:"Driver"`  		// 容器存储引擎
+	GraphDriver *DriverInfo 			`json:"GraphDriver"` 	// 镜像挂载信息
+	Mount		[]*MountInfo			`json:"Mount"`			// 数据卷数据
+	Cgroup		*cgroups.CgroupManager	`json:"Cgroup"`			// Ggroup 信息
+	TTy			bool					`json:"Tty"`			
+}
+
+// DriverInfo 镜像挂载信息
+type DriverInfo struct {
+	Driver	string 				`json:"Driver"`  // 容器存储引擎
+	Data	map[string]string	`json:"Data"`	// 挂载信息
+}
+
+// StatusInfo 容器状态信息
+type StatusInfo struct {
+	Pid         int 	`json:"Pid"`		//容器的init进程在宿主机上的 PID
+	Status		string `json:"Status"`
+	Running		bool   `json:"Running"`		// qsrdocker run/start
+	Paused	 	bool   `json:"Paused"`		// qsrdocker stop
+    OOMKilled	bool   `json:"OOMKilled"`	
+    Dead		bool   `json:"Dead"`		// 异常退出，不是由 stop 退出
+}
+
+// MountInfo 数据卷挂载信息
+type MountInfo struct {
+	Type		string 	// 默认为"bind"
+	Source 		string 
+	Destination	string
+	RW			bool	// true
+}
+
 // NewParentProcess 创建 runC 的守护进程
-func NewParentProcess(tty bool, containerName, containerID, imageName string) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, containerName, containerID, imageName string) (*exec.Cmd, *os.File, *DriverInfo) {
 
 	/*
 		1. 第一个参数为初始化 init RunContainerInitProcess
@@ -42,7 +94,7 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 
 	if err != nil {
 		log.Errorf("Create New pipe err: %v", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// exec 方式直接运行 qsrdocker init 
@@ -100,7 +152,7 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 
 	// 创建容器运行目录
 	// 创建容器映射数据卷
-	err = NewWorkSpace(imageName, containerID)
+	driverInfo, err := NewWorkSpace(imageName, containerID)
 
 	if err != nil {
 		// 若存在问题则删除挂载点目录
@@ -108,7 +160,7 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 		os.RemoveAll(mountPath)
 		log.Warnf("Remove mount dir : %v", mountPath)
 		log.Errorf("Can't create docker workspace error : %v", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// 设置进程运行目录
@@ -116,7 +168,7 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 
 	log.Debugf("Set qsrdocker : %v run dir : %v", containerID, path.Join(MountDir, containerID, "merged"))
 
-	return cmd, writePipe // 返回给 Run 写端fd，用于接收用户参数
+	return cmd, writePipe, driverInfo // 返回给 Run 写端fd，用于接收用户参数
 }
 
 // NewPipe 创建匿名管道实现 runC进程和parent进程通信
@@ -157,4 +209,37 @@ func InitUserNamespace() error {
 	log.Debugf("Get UserNamespaceCount : %v in %v", userNamespaceCount, userNamespacePath)
 	
 	return nil
+}
+
+// StatusCheck 检测当前 container 状态
+func (s *StatusInfo) StatusCheck(){
+	if _, err := os.FindProcess(s.Pid); err != nil && !s.Paused {
+		// 不是 qsrdocker stop ，则设置 dead
+		s.StatusSet("Dead")
+	} else {
+		s.StatusSet("Running")
+	}
+}
+
+// StatusSet 设置 container 状态
+func (s *StatusInfo) StatusSet(status string){
+
+	// 设置所有的状态为 false
+	// true 状态唯一
+	switch s.Status {
+		case "Running"   : s.Running = false
+		case "Paused"    : s.Paused = false
+		case "OOMKilled" : s.OOMKilled = false
+		case "Dead"		 : s.Dead = false
+	}
+
+	s.Status = status
+
+	switch {
+		case status == "Running"   : s.Running = true
+		case status == "Paused"    : s.Paused = true
+		case status == "OOMKilled" : s.OOMKilled = true
+		case status == "Dead"		: s.Dead = true
+	}
+	
 }

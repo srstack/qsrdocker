@@ -118,7 +118,7 @@ func RecordImageInfo(imageName, imageTag, imageLower string) {
 	var imageConfig map[string]map[string]string
 
 	// 映射文件目录
-	imageConfigPath := path.Join(container.ImageDir, "image.json")
+	imageConfigPath := path.Join(container.ImageDir, container.ImageInfoFile)
 
 	// 判断映射文件是否存在
 	if exist, _ := container.PathExists(imageConfigPath); !exist {

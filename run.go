@@ -17,8 +17,8 @@ import (
 	"github.com/srstack/qsrdocker/cgroups"
 )
 
-// QsrdockerRun Docker守护进程启动
-func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.ResourceConfig, 
+// QsrdockerRun 启动客户端
+func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.ResourceConfig, 
 	imageName, containerName string) {
 
 	// 获取容器id
@@ -34,7 +34,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 
 	// cID == ""  三种情况
 	// 1. can't get container Name:ID info cID == ""  err != nil  未通过测试，直接返回
-	// 2. containername.json is not exist   cID == "" err == nil  通过测试
+	// 2. containernames.json is not exist   cID == "" err == nil  通过测试
 	// 3. Name:ID not in config file
 	if cID  == "" {
 		if err != nil && !strings.HasSuffix(err.Error(), "not in config file") {
@@ -48,9 +48,9 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 	}
 	
 	// 获取管道通信
-	containerProcess, writePipe := container.NewParentProcess(tty, containerName ,containerID, imageName)
+	containerProcess, writePipe, driverInfo := container.NewParentProcess(tty, containerName ,containerID, imageName)
 
-	if containerProcess == nil || writePipe == nil {
+	if containerProcess == nil || writePipe == nil || driverInfo == nil {
 		log.Errorf("New parent process error")
 		return
 	}
@@ -63,29 +63,56 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 
 	log.Debugf("Create container process success, pis is %v ", containerProcess.Process.Pid)
 
+	// 设置 container info
+	containerInfo := &container.ContainerInfo{
+		ID: containerID,  // 容器ID 
+		Name: containerName, // 容器name
+		Command: cmdList[0:], // 输入 cmd 
+		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
+		Status: &container.StatusInfo{
+			Pid: containerProcess.Process.Pid, // 容器进程 pid
+		},
+		Driver: container.Driver,
+		GraphDriver: driverInfo,
+		TTy: tty,
+	}
+
+	// 检测 container 进程 状态
+	containerInfo.Status.StatusCheck()
+
 	// 创建 mount bind 数据卷 挂载 信息文件
-	container.SetVolume(containerID, volumes)
+	mountInfo := container.SetVolume(containerID, volumes)
 	log.Debugf("SetVolume qsrdocker %v Info file", containerID)
 
+	containerInfo.Mount = mountInfo
+
 	// 创建 cgroup_manager
-	cgroupManager := cgroups.NewCgroupManager(containerID)
+	cgroupManager := cgroups.NewCgroupManager(containerID,resConfig)
 	// defer cgroupManager.Destroy()
 
 	// 初始化 /sys/fs/cgroup/[subsystem]/qsrdocker
 	cgroupManager.Init()
 
 	// set 设置资源
-	cgroupManager.Set(resCongfig)
+	cgroupManager.Set()
 
 	// apply 应用资源(绑定PID至目标task)
 	cgroupManager.Apply(containerProcess.Process.Pid)
 
+	log.Debugf("Create cgroup config: %+v", resConfig)
+
+	// 将 cgroup 信息 存入 containerinfo
+	containerInfo.Cgroup = cgroupManager
+	
 	// 将用户命令发送给守护进程 Parent
 	sendInitCommand(cmdList, writePipe)
 
 	// 完成 ContainerName: ContainerID 的映射关系
 	RecordContainerNameInfo(containerName, containerID)
-
+	
+	// 将 containerInfo 存入 
+	RecordContainerInfo(containerInfo, containerID)
+	
 	if tty {
 		containerProcess.Wait()
 		// 进程退出 exit
@@ -99,7 +126,9 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resCongfig *subsystems.Re
 		RemoveContainerNameInfo(containerName, containerID)
 		// 删除 cgroup
 		cgroupManager.Destroy()
-	} 
+	} else {
+		fmt.Printf("%v\n", containerID)
+	}
 
 	// 后台启动不需要 exit 了
 	//os.Exit(-1)
@@ -151,7 +180,7 @@ func RecordContainerNameInfo(containerName, containerID string) {
 	var containerNameConfig map[string]string
 
 	// 映射文件目录
-	containerNamePath := path.Join(container.ContainerDir,"containername.json")
+	containerNamePath := path.Join(container.ContainerDir, container.ContainerNameFile)
 
 	// 判断映射文件是否存在
 	if exist, _ := container.PathExists(containerNamePath); !exist {
@@ -244,7 +273,7 @@ func ContainerNameToID(containerName string) (string, error) {
 	var containerNameConfig map[string]string
 
 	// 映射文件目录
-	containerNamePath := path.Join(container.ContainerDir,"containername.json")
+	containerNamePath := path.Join(container.ContainerDir, container.ContainerNameFile)
 
 	// 判断映射文件是否存在
 	if exist, _ := container.PathExists(containerNamePath); !exist {
@@ -282,7 +311,7 @@ func RemoveContainerNameInfo(containerName, containerID string) {
 	var containerNameConfig map[string]string
 
 	// 映射文件目录
-	containerNamePath := path.Join(container.ContainerDir,"containername.json")
+	containerNamePath := path.Join(container.ContainerDir, container.ContainerNameFile)
 	
 	
 	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
@@ -320,4 +349,40 @@ func RemoveContainerNameInfo(containerName, containerID string) {
 	}else {
 		log.Debugf("Remove container Name:ID success")
 	}		
+}
+
+// RecordContainerInfo 持久化存储 containerInfo 数据
+func RecordContainerInfo(containerInfo *container.ContainerInfo, containerID string ) error {
+
+	// 序列化 container info 
+	containerInfoBytes, err := json.Marshal(containerInfo)
+	if err != nil {
+		log.Errorf("Record container info error %v", err)
+		return err
+	}
+	containerInfoStr := string(containerInfoBytes)
+
+	// 创建 /[containerDir]/[containerID]/ 目录
+	containerDir := path.Join(container.ContainerDir, containerID)
+	if err := os.MkdirAll(containerDir, 0622); err != nil {
+		log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
+		return err
+	}
+	
+	// 创建 /[containerDir]/[containerID]/config.json
+	containerInfoFile := path.Join(containerDir, "config.json")
+	InfoFileFd ,err := os.Create(containerInfoFile )
+	defer InfoFileFd.Close()
+	if err != nil {
+		log.Errorf("Create container Info File %s error %v", containerInfoFile, err)
+		return err
+	}
+
+	// 写入 containerInfo
+	if _, err := InfoFileFd.WriteString(containerInfoStr); err != nil {
+		log.Errorf("Write container Info error %v", err)
+		return err
+	}
+
+	return nil
 }

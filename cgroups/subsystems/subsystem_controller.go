@@ -2,10 +2,10 @@ package subsystems
 
 // ResourceConfig is cgroup 限制资源的配置结构体
 type ResourceConfig struct {
-	MemoryLimit string // 内存限制
-	CPUShare    string // CUP时间片权重 (vruntime)
-	CPUSet      string // CPU核心数
-	CPUMem		string // NUMA 模式下cpu
+	MemoryLimit string 	`json:"MemoryLimit"`	// 内存限制
+	CPUShare    string 	`json:"CPUShare"`	// CUP时间片权重 (vruntime)
+	CPUSet      string 	`json:"CPUSet"`	// CPU核心数
+	CPUMem		string 	`json:"CPUMem"`	// NUMA 模式下cpu
 }
 
 // Subsystem 的抽象接口，每个 subsystem 可以实现以下四个接口

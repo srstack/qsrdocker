@@ -146,7 +146,7 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 				// 获取系统逻辑cpu核数
 				CPUNum := runtime.NumCPU()
 				cgroupConf = "0-" + strconv.Itoa(CPUNum-1) // 全部CPU
-				
+				resConfig.CPUSet = cgroupConf // 设置资源限制
 			}
 
 			// 设置 cgroup 的限制，将限制写入对应目录的 xxxxx 中
@@ -156,14 +156,15 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 			}
 			log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), cgroupConf)
 
-			// 根据 zoneinfo信息判断 是否为 NUMA 模式
-			if _, err := os.Stat("/proc/zoneinfo"); subsystemName == "cpuset" && !os.IsNotExist(err) {
+			// 是否为 NUMA 模式
+			if subsystemName == "cpuset" && numaer.IsNUMA() {
 				// 获取配置
 				CPUmemConf := s.GetCgroupConf(resConfig, "cpumem")
 
 				// 默认情况下 不限制 NAMU节点使用
 				if numNode, err := numaer.NumNode(); CPUmemConf == "" && err == nil {
-					CPUmemConf = "0-" + strconv.Itoa(numNode-1) // 全部CPU
+					CPUmemConf = "0-" + strconv.Itoa(numNode-1) // 全部 内存 node
+					resConfig.CPUMem = CPUmemConf
 				} else {
 					log.Warnf("set numa node fail, err: %v", err )
 				}
@@ -174,7 +175,6 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 					return fmt.Errorf("cgroup %s fail %v", "cpumem", err)
 				}
 				log.Debugf("Set cgroup %v in %v: %v", "cpumem", s.GetCgroupFile("cpumem"), CPUmemConf)
-
 			}
 			
 		}

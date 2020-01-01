@@ -8,14 +8,15 @@ import (
 
 // CgroupManager 结构体
 type CgroupManager struct {
-	Path     string                     // cgroup在hierarchy中的路径，相对于 cgroupRoot 路径的 相对路径，即 cgroupPath
-	Resource *subsystems.ResourceConfig // 配置相关
+	Path     string       			     `json:"Path"`	// cgroup在hierarchy中的路径，相对于 cgroupRoot 路径的 相对路径，即 cgroupPath
+	Resource *subsystems.ResourceConfig  `json:"Resource"`	// 配置相关
 }
 
 // NewCgroupManager 工厂模式初始化 CgroupManager
-func NewCgroupManager(path string) *CgroupManager {
+func NewCgroupManager(path string, resConfig *subsystems.ResourceConfig) *CgroupManager {
 	return &CgroupManager{
 		Path: path,
+		Resource: resConfig,
 	}
 }
 
@@ -39,9 +40,9 @@ func (c *CgroupManager) Apply(pid int) {
 }
 
 // Set 设置各个 subsystem的限制值
-func (c *CgroupManager) Set(resCongfig *subsystems.ResourceConfig) {
+func (c *CgroupManager) Set() {
 	for _, subSystemIn := range subsystems.SubsystemsIns {
-		if err := subSystemIn.Set(c.Path, subSystemIn.Name(), resCongfig); err != nil {
+		if err := subSystemIn.Set(c.Path, subSystemIn.Name(), c.Resource); err != nil {
 			log.Warnf("Set cgroup %v fail: %v", subSystemIn.Name(), err) // 不能直接 return err 等保证其他 subsystem set
 		}
 	}

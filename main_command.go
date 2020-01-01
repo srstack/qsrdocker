@@ -100,8 +100,6 @@ var runCmd = cli.Command{
 			CPUMem:    	 context.String("cpumem"),
 		}
 
-		log.Debugf("Create cgroup config: %+v", resConfig)
-
 		QsrdockerRun(tty, cmdList, volumes, resConfig, imageName, containerName)
 		return nil
 	},
