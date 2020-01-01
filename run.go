@@ -75,6 +75,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 		Driver: container.Driver,
 		GraphDriver: driverInfo,
 		TTy: tty,
+		Image: imageName,
 	}
 
 	// 检测 container 进程 状态
@@ -370,7 +371,7 @@ func RecordContainerInfo(containerInfo *container.ContainerInfo, containerID str
 	}
 	
 	// 创建 /[containerDir]/[containerID]/config.json
-	containerInfoFile := path.Join(containerDir, "config.json")
+	containerInfoFile := path.Join(containerDir, container.ConfigName)
 	InfoFileFd ,err := os.Create(containerInfoFile )
 	defer InfoFileFd.Close()
 	if err != nil {

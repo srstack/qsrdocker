@@ -17,10 +17,9 @@ var runCmd = cli.Command{
 	ArgsUsage: "[imageName] [command]",
 
 	Flags: []cli.Flag{
-
 		cli.BoolFlag{
 			Name:    "it,ti", // 指定 t 参数即当前的输入输出导入到标准输入输出
-			Usage:   `enable tty and Keep STDIN open even if not attached`,
+			Usage:   `Enable tty and Keep STDIN open even if not attached`,
 		},
 		cli.BoolFlag{
 			Name:  "d",  // 后台去启动 默认模式
@@ -44,12 +43,12 @@ var runCmd = cli.Command{
 		},
 		cli.StringFlag{
 			Name:  "name",  // 容器名称
-			Usage: "container name",
+			Usage: "Container name",
 		},
 		// 存在多个 -v 操作
 		cli.StringSliceFlag{
 			Name:  "v", // 数据卷
-			Usage: "volume",
+			Usage: "Volume",
 		},
 	},
 
@@ -144,4 +143,27 @@ var commitCmd = cli.Command {
 		CommitContainer(containerName, imageName)
 		return nil
 	},
+}
+
+
+// listCmd: qsrdocker ps [-a] []
+var listCmd = cli.Command{
+	Name: "ps",
+	Usage: "list all the container",
+	ArgsUsage: "[]",
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:    "a", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Usage:   `Show all containers (default shows just running)`,
+		},
+	},
+
+	Action: func(context *cli.Context) error {
+		// show all container
+		all := context.Bool("a")
+		ListContainers(all)
+
+		return nil
+	},
+	
 }

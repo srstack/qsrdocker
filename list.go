@@ -1,0 +1,128 @@
+package main
+
+import (
+	"io/ioutil"
+	"path"
+	"os"
+	"text/tabwriter"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/srstack/qsrdocker/container"
+)
+
+// ListContainers 列出container信息
+func ListContainers(all bool) {
+	// 获取 ContainerDir 下的文件
+	containerDirs, err := ioutil.ReadDir(container.ContainerDir)
+	if err != nil {
+		log.Errorf("Read dir %s error %v", container.ContainerDir, err)
+		return
+	}
+
+	var containerInfos []*container.ContainerInfo
+
+	// 遍历所有文件
+	for _, dir := range containerDirs {
+		
+		// 若获取 containernames.json ，则直接 continue
+		if dir.Name() == container.ContainerNameFile {
+			continue
+		}
+		
+		// 获取 containerInfo
+		tmpContainerInfo, err := GetContainerInfo(dir)
+		if err != nil {
+			log.Errorf("Get container info error %v", err)
+			continue
+		}
+
+		// 检测当前 container 状态
+		tmpContainerInfo.Status.StatusCheck()
+		
+		// 若无 -a ，则不显示 running 状态之外的 containerinfo
+		if !all && !tmpContainerInfo.Status.Running {
+			continue
+		}
+		
+		containerInfos = append(containerInfos, tmpContainerInfo)
+	}
+
+	// 使用 tabwriter.NewWriter 在 终端 打出容器信息，打印对齐的表格
+	w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
+	fmt.Fprint(w, "CONTAINER ID\tIMAGE\tNAME\tPID\tSTATUS\tCOMMAND\tUP TIME\tCREATED\n")
+	for _, info := range containerInfos {
+		fmt.Fprintf( w, "%s\t%s\t%s\t%v\t%s\t%s\t%s\t%s\n",
+			info.ID,
+			info.Image,
+			info.Name,
+			info.Status.Pid,
+			info.Status.Status,
+			info.Command,
+			// 匿名函数
+			func(info *container.ContainerInfo) string {
+				if info.Status.Running {
+					// string => time
+					createdTime, err := time.ParseInLocation(
+						"2006-01-02 15:04:05",
+						info.CreatedTime, 
+						time.Local,
+					)
+
+					if err != nil {
+						return "NULL"
+					}
+					
+					// 当前时间
+					newTime := time.Now()
+					// 获取时间差
+					uptime := newTime.Sub(createdTime)
+					
+					switch{
+						// up time days
+						case uptime.Hours() >= 24: return fmt.Sprintf("Up %d Days", int(uptime.Hours()/24))
+						// up time hours
+						case uptime.Hours() < 24 && uptime.Hours() >= 1: return fmt.Sprintf("Up %d Hours", int(uptime.Hours()))
+						// up time min
+						case uptime.Minutes() < 60 && uptime.Minutes() >= 1: return fmt.Sprintf("Up %d Minutes", int(uptime.Minutes()))
+						// up time sec
+						case uptime.Seconds() < 60 : return fmt.Sprintf("Up %d Seconds", int(uptime.Seconds()))
+					}
+					
+				}
+				return "NULL"	
+			} (info),
+			info.CreatedTime,
+		)
+	}
+	if err := w.Flush(); err != nil {
+		log.Errorf("Flush error %v", err)
+		return
+	}
+}
+
+// GetContainerInfo 获取 container info
+func GetContainerInfo(file os.FileInfo) (*container.ContainerInfo, error) {
+	containerID := file.Name()
+	configFilePtah := path.Join(container.ContainerDir, containerID, container.ConfigName)
+
+	// 读取目标文件 
+	content, err := ioutil.ReadFile(configFilePtah)
+	if err != nil {
+		log.Errorf("Read file %s error %v", configFilePtah, err)
+		return nil, err
+	}
+
+	// 反序列化
+	var containerInfo container.ContainerInfo
+	if err := json.Unmarshal(content, &containerInfo); err != nil {
+		log.Errorf("Json unmarshal error %v", err)
+		return nil, err
+	}
+	
+	// 返回结构体指针
+	return &containerInfo, nil
+}

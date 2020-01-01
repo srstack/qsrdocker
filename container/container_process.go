@@ -47,8 +47,9 @@ type ContainerInfo struct {
 	Driver		string 					`json:"Driver"`  		// 容器存储引擎
 	GraphDriver *DriverInfo 			`json:"GraphDriver"` 	// 镜像挂载信息
 	Mount		[]*MountInfo			`json:"Mount"`			// 数据卷数据
-	Cgroup		*cgroups.CgroupManager	`json:"Cgroup"`			// Ggroup 信息
-	TTy			bool					`json:"Tty"`			
+	Cgroup		*cgroups.CgroupManager	`json:"Cgroup"`			// Cgroup 信息
+	TTy			bool					`json:"Tty"`
+	Image		string					`json"Image"`			// Image 镜像信息
 }
 
 // DriverInfo 镜像挂载信息
