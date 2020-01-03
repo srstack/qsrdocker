@@ -6,11 +6,10 @@ import (
 	"os"
 	"bufio"
 	"strings"
+	"qsrdocker/container"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/hpcloud/tail"
-
-	"github.com/srstack/qsrdocker/container"
 )
 
 // LogContainer 输入 container log

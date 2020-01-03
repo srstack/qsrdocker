@@ -9,12 +9,11 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"fmt"
+	"qsrdocker/container"
+	"qsrdocker/cgroups/subsystems"
+	"qsrdocker/cgroups"
 
 	log "github.com/sirupsen/logrus"
-
-	"github.com/srstack/qsrdocker/container"
-	"github.com/srstack/qsrdocker/cgroups/subsystems"
-	"github.com/srstack/qsrdocker/cgroups"
 )
 
 // QsrdockerRun 启动客户端

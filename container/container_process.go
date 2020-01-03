@@ -10,10 +10,9 @@ import (
 	"io/ioutil"
 	"strconv"
 	"encoding/json"
+	"qsrdocker/cgroups"
 
 	log "github.com/sirupsen/logrus"
-
-	"github.com/srstack/qsrdocker/cgroups"
 )
 
 // 路径相关信息

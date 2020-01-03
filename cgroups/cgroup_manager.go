@@ -1,9 +1,9 @@
 package cgroups
 
 import (
-	log "github.com/sirupsen/logrus"
+	"qsrdocker/cgroups/subsystems"
 
-	"github.com/srstack/qsrdocker/cgroups/subsystems"
+	log "github.com/sirupsen/logrus"
 )
 
 // CgroupManager 结构体
