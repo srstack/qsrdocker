@@ -177,5 +177,3 @@ func readLines(path string, offSet int64, maxline int) ([]string, int, int64, er
 	currOffset, _ := file.Seek(0,1) // 相当于当前位置的0偏移量的offset， 即当前 offset
 	return lines, linecount, currOffset, scanner.Err()
   }
-
-  

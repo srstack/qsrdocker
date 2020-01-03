@@ -67,7 +67,8 @@ type StatusInfo struct {
 	Running		bool   `json:"Running"`		// qsrdocker run/start
 	Paused	 	bool   `json:"Paused"`		// qsrdocker stop
     OOMKilled	bool   `json:"OOMKilled"`	
-    Dead		bool   `json:"Dead"`		// 异常退出，不是由 stop 退出
+	Dead		bool   `json:"Dead"`		// 异常退出，不是由 stop 退出
+	StartTime	string `json:"StartTime"`
 }
 
 // MountInfo 数据卷挂载信息

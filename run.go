@@ -71,6 +71,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
 		Status: &container.StatusInfo{
 			Pid: containerProcess.Process.Pid, // 容器进程 pid
+			StartTime: time.Now().Format("2006-01-02 15:04:05"),
 		},
 		Driver: container.Driver,
 		GraphDriver: driverInfo,

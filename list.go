@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/ioutil"
+	"strings"
 	"os"
 	"text/tabwriter"
 	"fmt"
@@ -59,14 +60,14 @@ func listContainers(all bool) {
 			info.Name,
 			info.Status.Pid,
 			info.Status.Status,
-			info.Command,
+			strings.Join(info.Command," "),
 			// 匿名函数
 			func(info *container.ContainerInfo) string {
 				if info.Status.Running {
 					// string => time
-					createdTime, err := time.ParseInLocation(
+					startTime, err := time.ParseInLocation(
 						"2006-01-02 15:04:05",
-						info.CreatedTime, 
+						info.Status.StartTime, 
 						time.Local,
 					)
 
@@ -77,7 +78,7 @@ func listContainers(all bool) {
 					// 当前时间
 					newTime := time.Now()
 					// 获取时间差
-					uptime := newTime.Sub(createdTime)
+					uptime := newTime.Sub(startTime)
 					
 					switch{
 						// up time days
