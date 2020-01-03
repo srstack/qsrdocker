@@ -2,10 +2,8 @@ package main
 
 import (
 	"io/ioutil"
-	"path"
 	"os"
 	"text/tabwriter"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -15,7 +13,7 @@ import (
 )
 
 // ListContainers 列出container信息
-func ListContainers(all bool) {
+func listContainers(all bool) {
 	// 获取 ContainerDir 下的文件
 	containerDirs, err := ioutil.ReadDir(container.ContainerDir)
 	if err != nil {
@@ -34,7 +32,7 @@ func ListContainers(all bool) {
 		}
 		
 		// 获取 containerInfo
-		tmpContainerInfo, err := GetContainerInfo(dir)
+		tmpContainerInfo, err := container.GetContainerInfo(dir)
 		if err != nil {
 			log.Errorf("Get container info error %v", err)
 			continue
@@ -102,27 +100,4 @@ func ListContainers(all bool) {
 		log.Errorf("Flush error %v", err)
 		return
 	}
-}
-
-// GetContainerInfo 获取 container info
-func GetContainerInfo(file os.FileInfo) (*container.ContainerInfo, error) {
-	containerID := file.Name()
-	configFilePtah := path.Join(container.ContainerDir, containerID, container.ConfigName)
-
-	// 读取目标文件 
-	content, err := ioutil.ReadFile(configFilePtah)
-	if err != nil {
-		log.Errorf("Read file %s error %v", configFilePtah, err)
-		return nil, err
-	}
-
-	// 反序列化
-	var containerInfo container.ContainerInfo
-	if err := json.Unmarshal(content, &containerInfo); err != nil {
-		log.Errorf("Json unmarshal error %v", err)
-		return nil, err
-	}
-	
-	// 返回结构体指针
-	return &containerInfo, nil
 }

@@ -161,9 +161,47 @@ var listCmd = cli.Command{
 	Action: func(context *cli.Context) error {
 		// show all container
 		all := context.Bool("a")
-		ListContainers(all)
+		listContainers(all)
 
 		return nil
 	},
 	
+}
+
+// logCommand qsrdocker logs -f/-t 
+var logCmd = cli.Command{
+	Name:  "logs",
+	Usage: "Print logs of a container",
+	ArgsUsage: "[containerName]",
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:    "f,follow", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Usage:   `Follow log output`,
+		},
+		cli.IntFlag{
+			Name:    "t,tail", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Usage:   `Show from the end of the logs (default "all")`,
+		},
+	},
+	Action: func(context *cli.Context) error {
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Please input container Name")
+		}
+
+		// tail -f
+		follow := context.Bool("f")
+		
+		// 打印末尾几行
+		tail := context.Int("t") 
+		
+		if  tail < 0 {
+			return fmt.Errorf("Please input --t/--tail positive number")
+		}
+		
+		containerName := context.Args().Get(0)
+
+		// 打印 log
+		logContainer(containerName, tail, follow)
+		return nil
+	},
 }

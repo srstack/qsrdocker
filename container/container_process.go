@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"path"
 	"io/ioutil"
+	"strconv"
+	"encoding/json"
 
 	log "github.com/sirupsen/logrus"
 
@@ -141,11 +143,29 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+	} else {
+
+		// 创建 /[containerDir]/[containerID]/ 目录
+		containerDir := path.Join(ContainerDir, containerID)
+		if err := os.MkdirAll(containerDir, 0622); err != nil {
+			log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
+			return nil, nil, nil
+		}
+		// 创建 log 文件
+		containerLogFile := path.Join(containerDir, ContainerLogFile)
+		logFileFd, err := os.Create(containerLogFile)
+		if err != nil {
+			log.Errorf("NewParentProcess create log file %s error %v", containerLogFile , err)
+			return nil, nil, nil
+		}
+		
+		// 将标准输出 重定向到 log 文件中
+		cmd.Stdout = logFileFd
 	}
 
-	// 传入管道问价读端fd
+	// 传入管道问价读端fld
 	cmd.ExtraFiles = []*os.File {readPipe}
-	// 一个进程的文件描述符默认 0 1 2 代表 输入 输出 错误 
+	// 一个进程的文件描d述符默认 0 1 2 代表 输入 输出 错误 
 	// readPipe 为外带的第四个文件描述符 下标为 3
 
 	// 设置进程环境变量
@@ -214,7 +234,7 @@ func InitUserNamespace() error {
 
 // StatusCheck 检测当前 container 状态
 func (s *StatusInfo) StatusCheck(){
-	if _, err := os.FindProcess(s.Pid); err != nil && !s.Paused {
+	if exist, err := PathExists(path.Join("/proc", strconv.Itoa(s.Pid))); (!exist || err != nil) && !s.Paused {
 		// 不是 qsrdocker stop ，则设置 dead
 		s.StatusSet("Dead")
 	} else {
@@ -243,4 +263,63 @@ func (s *StatusInfo) StatusSet(status string){
 		case status == "Dead"		: s.Dead = true
 	}
 	
+}
+
+// GetContainerInfo 获取 container info
+func GetContainerInfo(file os.FileInfo) (*ContainerInfo, error) {
+	containerID := file.Name()
+	configFilePtah := path.Join(ContainerDir, containerID, ConfigName)
+
+	// 读取目标文件 
+	content, err := ioutil.ReadFile(configFilePtah)
+	if err != nil {
+		log.Errorf("Read file %s error %v", configFilePtah, err)
+		return nil, err
+	}
+
+	// 反序列化
+	var containerInfo ContainerInfo
+	if err := json.Unmarshal(content, &containerInfo); err != nil {
+		log.Errorf("Json unmarshal error %v", err)
+		return nil, err
+	}
+	
+	// 返回结构体指针
+	return &containerInfo, nil
+}
+
+// RecordContainerInfo 持久化存储 containerInfo 数据
+func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) error {
+
+	// 序列化 container info 
+	containerInfoBytes, err := json.Marshal(containerInfo)
+	if err != nil {
+		log.Errorf("Record container info error %v", err)
+		return err
+	}
+	containerInfoStr := string(containerInfoBytes)
+
+	// 创建 /[containerDir]/[containerID]/ 目录
+	containerDir := path.Join(ContainerDir, containerID)
+	if err := os.MkdirAll(containerDir, 0622); err != nil {
+		log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
+		return err
+	}
+	
+	// 创建 /[containerDir]/[containerID]/config.json
+	containerInfoFile := path.Join(containerDir, ConfigName)
+	InfoFileFd ,err := os.Create(containerInfoFile )
+	defer InfoFileFd.Close()
+	if err != nil {
+		log.Errorf("Create container Info File %s error %v", containerInfoFile, err)
+		return err
+	}
+
+	// 写入 containerInfo
+	if _, err := InfoFileFd.WriteString(containerInfoStr); err != nil {
+		log.Errorf("Write container Info error %v", err)
+		return err
+	}
+
+	return nil
 }

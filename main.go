@@ -25,6 +25,7 @@ func main() {
 		runCmd,
 		commitCmd,
 		listCmd,
+		logCmd,
 	}
 
 	// 设定log配置项

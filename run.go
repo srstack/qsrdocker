@@ -109,10 +109,10 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 	sendInitCommand(cmdList, writePipe)
 
 	// 完成 ContainerName: ContainerID 的映射关系
-	RecordContainerNameInfo(containerName, containerID)
+	recordContainerNameInfo(containerName, containerID)
 	
 	// 将 containerInfo 存入 
-	RecordContainerInfo(containerInfo, containerID)
+	container.RecordContainerInfo(containerInfo, containerID)
 	
 	if tty {
 		containerProcess.Wait()
@@ -166,8 +166,8 @@ func randStringContainerID(n int) string {
 	return string(b)
 }
 
-// RecordContainerNameInfo 创建 ContainerName: ContainerID 的映射关系
-func RecordContainerNameInfo(containerName, containerID string) {
+// recordContainerNameInfo 创建 ContainerName: ContainerID 的映射关系
+func recordContainerNameInfo(containerName, containerID string) {
 
 	// 判断 container 目录是否存在
 	if exist, _ := container.PathExists(container.ContainerDir); !exist {
@@ -350,40 +350,4 @@ func RemoveContainerNameInfo(containerName, containerID string) {
 	}else {
 		log.Debugf("Remove container Name:ID success")
 	}		
-}
-
-// RecordContainerInfo 持久化存储 containerInfo 数据
-func RecordContainerInfo(containerInfo *container.ContainerInfo, containerID string ) error {
-
-	// 序列化 container info 
-	containerInfoBytes, err := json.Marshal(containerInfo)
-	if err != nil {
-		log.Errorf("Record container info error %v", err)
-		return err
-	}
-	containerInfoStr := string(containerInfoBytes)
-
-	// 创建 /[containerDir]/[containerID]/ 目录
-	containerDir := path.Join(container.ContainerDir, containerID)
-	if err := os.MkdirAll(containerDir, 0622); err != nil {
-		log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
-		return err
-	}
-	
-	// 创建 /[containerDir]/[containerID]/config.json
-	containerInfoFile := path.Join(containerDir, container.ConfigName)
-	InfoFileFd ,err := os.Create(containerInfoFile )
-	defer InfoFileFd.Close()
-	if err != nil {
-		log.Errorf("Create container Info File %s error %v", containerInfoFile, err)
-		return err
-	}
-
-	// 写入 containerInfo
-	if _, err := InfoFileFd.WriteString(containerInfoStr); err != nil {
-		log.Errorf("Write container Info error %v", err)
-		return err
-	}
-
-	return nil
 }
