@@ -82,12 +82,12 @@ func SetVolume(containerID string, volumes []string) []*MountInfo {
 
 	// 追加进入 BindVolumeInfo
 	for _, volume := range volumes {
-		if volume != "" {
+		if strings.Replace(volume, " ", "", -1) != "" {
 			// host volume : guest volume
 			volumePaths := strings.Split(volume, ":")
 			length := len(volumePaths)
 
-			if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
+			if length == 2 && strings.Replace(volumePaths[0], " ", "", -1) != "" && strings.Replace(volumePaths[1], " ", "", -1) != "" {
 				// 获取绝对路径
 				volumePaths[0], err = filepath.Abs(volumePaths[0])
 
@@ -143,12 +143,12 @@ func InitVolume(CurrDir string) {
     for scanner.Scan() {
         volume := scanner.Text()
 
-		if volume != "" {
+		if strings.Replace(volume, " ", "", -1) != "" {
 			// host volume : guest volume
 			volumePaths := strings.Split(volume, ":")
 			length := len(volumePaths)
 
-			if length == 2 && volumePaths[0] != "" && volumePaths[1] != "" {
+			if length == 2 && strings.Replace(volumePaths[0], " ", "", -1) != "" && strings.Replace(volumePaths[1], " ", "", -1) != "" {
 
 				// 数据卷实现
 				MountBindVolume(volumePaths, containerID)

@@ -83,7 +83,7 @@ func GetContainerStatusByName(containerName string) (*container.StatusInfo, erro
 	// 获取 container ID
 	containerID, err := ContainerNameToID(containerName)
 
-	if containerID == "" || err != nil {
+	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
 		return nil, fmt.Errorf("Get containerID fail : %v", err)
 	}
 	

@@ -22,7 +22,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 
 	// 获取容器id
 	containerID := randStringContainerID(10)
-	if containerName == "" {
+	if strings.Replace(containerName, " ", "", -1) == "" {
 		containerName = containerID
 	}
 	log.Debugf("Container name is %v", containerName)
@@ -35,7 +35,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 	// 1. can't get container Name:ID info cID == ""  err != nil  未通过测试，直接返回
 	// 2. containernames.json is not exist   cID == "" err == nil  通过测试
 	// 3. Name:ID not in config file
-	if cID  == "" {
+	if strings.Replace(cID, " ", "", -1)  == "" {
 		if err != nil && !strings.HasSuffix(err.Error(), "not in config file") {
 			log.Errorf("Container Name status err : %v", err )
 			return

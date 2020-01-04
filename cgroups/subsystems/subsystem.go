@@ -7,9 +7,9 @@ import (
 	"path"
 	"strconv"
 	"runtime"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/srstack/numaer"
 )
 
@@ -139,10 +139,10 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 
 	// GetCgroupPath 是获取当前VFS中 cgroup 的路径
 	if subsysCgroupPath, err := GetCgroupPath(subsystemName, cgroupPath, true); err == nil {
-		if cgroupConf := s.GetCgroupConf(resConfig, subsystemName); cgroupConf != "" || subsystemName == "cpuset" {
+		if cgroupConf := s.GetCgroupConf(resConfig, subsystemName); strings.Replace(cgroupConf, " ", "", -1) != "" || subsystemName == "cpuset" {
 			
 			// 由于在NUMA模式下的问题，当cupset为空时，是无法将pid写入task的，所以默认是不限制，即全部CUP
-			if subsystemName == "cpuset" && cgroupConf == "" {
+			if subsystemName == "cpuset" && strings.Replace(cgroupConf, " ", "", -1) == "" {
 				// 获取系统逻辑cpu核数
 				CPUNum := runtime.NumCPU()
 				cgroupConf = "0-" + strconv.Itoa(CPUNum-1) // 全部CPU
@@ -162,7 +162,7 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 				CPUmemConf := s.GetCgroupConf(resConfig, "cpumem")
 
 				// 默认情况下 不限制 NAMU节点使用
-				if numNode, err := numaer.NumNode(); CPUmemConf == "" && err == nil {
+				if numNode, err := numaer.NumNode(); strings.Replace(CPUmemConf, " ", "", -1) == "" && err == nil {
 					CPUmemConf = "0-" + strconv.Itoa(numNode-1) // 全部 内存 node
 					resConfig.CPUMem = CPUmemConf
 				} else {

@@ -38,7 +38,7 @@ var (
 	MountType			string = "bind"
 )
 
-// ContainerInfo 容器基本信息
+// ContainerInfo 容器基本信息描述
 type ContainerInfo struct {    
 	ID          string 					`json:"ID"`          	//容器Id
 	Name        string 					`json:"Name"`        	//容器名

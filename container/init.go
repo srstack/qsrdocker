@@ -20,7 +20,7 @@ func RunContainerInitProcess() error {
 
 	log.Debugf("Get cmdList %v from user", cmdList)
 
-	if len(cmdList) == 1 && cmdList[0] == "" {
+	if len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "" {
 		return fmt.Errorf("Run container get user command error, command is nil")
 	}
 	

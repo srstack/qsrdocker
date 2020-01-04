@@ -18,7 +18,7 @@ func logContainer(containerName string, tailline int, follow bool) {
 	// 获取 container ID
 	containerID, err := ContainerNameToID(containerName)
 	
-	if containerID == "" || err != nil {
+	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
 		log.Errorf("Get containerID fail : %v", err)
 		return
 	}

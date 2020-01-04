@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"qsrdocker/container"
 	"qsrdocker/cgroups/subsystems"
 
@@ -223,7 +224,7 @@ var execCmd = cli.Command{
 
 		// 获取环境变量
 		// 第一次调用的时候会是否
-		if os.Getenv(ENVEXECPID) != "" {
+		if strings.Replace(os.Getenv(ENVEXECPID), " ", "", -1) != "" {
 			log.Debugf("Exec callback pid %s", os.Getgid())
 			return nil
 		}
