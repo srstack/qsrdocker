@@ -37,9 +37,6 @@ func listContainers(all bool) {
 			log.Errorf("Get container info error %v", err)
 			continue
 		}
-
-		// 检测当前 container 状态
-		tmpContainerInfo.Status.StatusCheck()
 		
 		// 若无 -a ，则不显示 running 状态之外的 containerinfo
 		if !all && !tmpContainerInfo.Status.Running {

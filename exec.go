@@ -34,7 +34,7 @@ func ExecContainer(tty bool, containerName string, cmdList []string) {
 	
 	// 判断进程状态
 	if !statusInfo.Running {
-		log.Errorf("Exec container GetContainerStatusByName %s error %v", containerName, err)
+		log.Errorf("Exec container fail, Status is Dead and  pid %v is not exist", statusInfo.Pid)
 		return
 	}
 

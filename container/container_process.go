@@ -284,6 +284,11 @@ func GetContainerInfo(file os.FileInfo) (*ContainerInfo, error) {
 		log.Errorf("Json unmarshal error %v", err)
 		return nil, err
 	}
+
+	// 检测容器当前状态并持久化
+	containerInfo.Status.StatusCheck()
+
+	RecordContainerInfo(&containerInfo, containerID)
 	
 	// 返回结构体指针
 	return &containerInfo, nil
