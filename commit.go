@@ -78,7 +78,7 @@ func CommitContainer(containerName, imageNameTag string) {
 		log.Errorf("Tar folder %s error %v", mountPath, err)
 	}
 	
-	RecordImageInfo(imageName, imageTag, lowerInfo)
+	recordImageInfo(imageName, imageTag, lowerInfo)
 
 }
 
@@ -102,8 +102,8 @@ func randStringImageID(n int) string {
 	return string(b)
 }
 
-// RecordImageInfo 保存 imagename:tag:lower(id) 信息
-func RecordImageInfo(imageName, imageTag, imageLower string) {
+// recordImageInfo 保存 imagename:tag:lower(id) 信息
+func recordImageInfo(imageName, imageTag, imageLower string) {
 	
 	// 判断 container 目录是否存在
 	if exist, _ := container.PathExists(container.ImageDir); !exist {

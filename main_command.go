@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"qsrdocker/container"
 	"qsrdocker/cgroups/subsystems"
 
@@ -201,6 +202,49 @@ var logCmd = cli.Command{
 
 		// 打印 log
 		logContainer(containerName, tail, follow)
+		return nil
+	},
+}
+
+var execCmd = cli.Command{
+	Name:  "exec",
+	Usage: "Exec a command into container",
+	ArgsUsage: "[containerName] [command]",
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:    "it,ti", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Usage:   `Enable tty and Keep STDIN open even if not attached`,
+		},
+	},
+	Action: func(context *cli.Context) error {
+
+		tty := context.Bool("it")
+		// -ti 或者 -it 都可以
+
+		// 获取环境变量
+		// 第一次调用的时候会是否
+		if os.Getenv(ENVEXECPID) != "" {
+			log.Debugf("Exec callback pid %s", os.Getgid())
+			return nil
+		}
+		
+		if len(context.Args()) < 2 {
+			return fmt.Errorf("Missing container name or command")
+		}
+		
+		// 获取
+		containerName := context.Args().Get(0)
+		
+		var cmdList []string
+		
+		// 返回除去 containerName
+		// Tail 除去第一个
+		for _, arg := range context.Args().Tail() {
+			cmdList = append(cmdList, arg)
+		}
+		
+		// 处理
+		ExecContainer(tty, containerName, cmdList)
 		return nil
 	},
 }

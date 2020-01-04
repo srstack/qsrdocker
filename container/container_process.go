@@ -147,6 +147,7 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 
 		// 创建 /[containerDir]/[containerID]/ 目录
 		containerDir := path.Join(ContainerDir, containerID)
+		
 		if err := os.MkdirAll(containerDir, 0622); err != nil {
 			log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
 			return nil, nil, nil
