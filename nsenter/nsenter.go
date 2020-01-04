@@ -31,10 +31,10 @@ __attribute__((constructor)) void enter_namespace(void) {
 	// 
 	if (qsrdocker_pid) {
 		// debug log
-		fprintf(stdout, "got qsrdocker_pid=%s\n", qsrdocker_pid);
+		// fprintf(stdout, "got qsrdocker_pid=%s\n", qsrdocker_pid);
 	} else {
 		// debug log
-		fprintf(stdout, "missing qsrdocker_pid env skip nsenter");
+		// fprintf(stdout, "missing qsrdocker_pid env skip nsenter");
 
 		// 没获取到 pid 直接退出
 		return;
@@ -47,10 +47,10 @@ __attribute__((constructor)) void enter_namespace(void) {
 	qsrdocker_cmd = getenv("qsrdocker_cmd");
 	if (qsrdocker_cmd) {
 		// debug log
-		fprintf(stdout, "got qsrdocker_cmd=%s\n", qsrdocker_cmd);
+		// fprintf(stdout, "got qsrdocker_cmd=%s\n", qsrdocker_cmd);
 	} else {
 		// debug log
-		fprintf(stdout, "missing qsrdocker_cmd env skip nsenter");
+		// fprintf(stdout, "missing qsrdocker_cmd env skip nsenter");
 
 		// 没获取到直接退出
 		return;
@@ -76,10 +76,10 @@ __attribute__((constructor)) void enter_namespace(void) {
 		// 返回值 -1 则调用失败
 		if (setns(fd, 0) == -1) {
 			// debug log
-			fprintf(stderr, "setns on %s namespace failed: %s\n", namespaces[i], strerror(errno));
+			// fprintf(stderr, "setns on %s namespace failed: %s\n", namespaces[i], strerror(errno));
 		} else {
 			// debug log
-			fprintf(stdout, "setns on %s namespace succeeded\n", namespaces[i]);
+			// fprintf(stdout, "setns on %s namespace succeeded\n", namespaces[i]);
 		}
 		// 关闭 类似于 file.Close()
 		close(fd);
