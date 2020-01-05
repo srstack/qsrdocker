@@ -272,11 +272,6 @@ func CreateReadOnlyLayer(imageID string) error {
 		log.Debugf("Remove %v successful ", imageTarPath)
 	}
 
-	// 确定镜像存在
-	if IsEmptyDir(imageTarDir) {
-		return fmt.Errorf("Can't find image file in %v ", imageTarDir)
-	}
-
 	log.Debugf("Find %v image in %v successful ", imageID, imageTarDir)
 
 	return nil

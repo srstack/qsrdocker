@@ -252,7 +252,9 @@ func recordContainerNameInfo(containerName, containerID string) {
 			return 
 		}
 
-		if _, err := nameConfig.Write(containerNameConfigBytes); err != nil {
+		containerNameConfigStr := strings.Join([]string{string(containerNameConfigBytes), "\n"}, "")
+
+		if _, err := nameConfig.WriteString(containerNameConfigStr); err != nil {
 			log.Errorf("File write string error %v", err)
 			return
 		}
@@ -292,8 +294,10 @@ func recordContainerNameInfo(containerName, containerID string) {
 		log.Errorf("Record container Name:ID error %v", err)
 		return 
 	}
-
-	if err = ioutil.WriteFile(containerNamePath, containerNameConfigBytes, 0644); err != nil {
+	
+	containerNameConfigStr := strings.Join([]string{string(containerNameConfigBytes), "\n"}, "")
+	
+	if err = ioutil.WriteFile(containerNamePath, []byte(containerNameConfigStr), 0644); err != nil {
 		log.Errorf("Record container Name:ID fail err : %v", err)
 	}else {
 		log.Debugf("Record container Name:ID success")
@@ -340,7 +344,9 @@ func RemoveContainerNameInfo(containerName, containerID string) {
 		return 
 	}
 
-	if err = ioutil.WriteFile(containerNamePath, containerNameConfigBytes, 0644); err != nil {
+	containerNameConfigStr := strings.Join([]string{string(containerNameConfigBytes), "\n"}, "")
+
+	if err = ioutil.WriteFile(containerNamePath, []byte(containerNameConfigStr), 0644); err != nil {
 		log.Errorf("Remove container Name:ID fail err : %v", err)
 	}else {
 		log.Debugf("Remove container Name:ID success")

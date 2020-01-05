@@ -115,16 +115,21 @@ func getEnvSliceByPid(pid string) []string {
 	
 	envPath :=  path.Join("/proc", pid, "environ")
 
+	exist, _ := container.PathExists(envPath)
+
+	envSlice := []string{}
+
 	// 读取环境变量
 	// 确定设置成功
-	contentBytes, err := ioutil.ReadFile(envPath)
-	if err != nil {
-		log.Errorf("Read file %s error %v", envPath, err)
-		return nil
+	if exist{
+		contentBytes, err := ioutil.ReadFile(envPath)
+		if err != nil {
+			log.Errorf("Read file %s error %v", envPath, err)
+			return nil
+		}
+		// env split by \u0000
+		// 默认格式
+		envSlice = strings.Split(string(contentBytes), "\u0000")
 	}
-	
-	// env split by \u0000
-	// 默认格式
-	envSlice := strings.Split(string(contentBytes), "\u0000")
 	return envSlice
 }

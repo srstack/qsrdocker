@@ -162,8 +162,9 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 			log.Errorf("Record image : %v:%v config err : %v", imageName, imageTag, err)
 			return 
 		}
+		imageConfigStr := strings.Join([]string{string(imageConfigBytes), "\n"}, "")
 
-		if _, err := ConfigFile.Write(imageConfigBytes); err != nil {
+		if _, err := ConfigFile.WriteString(imageConfigStr); err != nil {
 			log.Errorf("File write string error %v", err)
 			return
 		}
@@ -201,7 +202,9 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 		return 
 	}
 
-	if err = ioutil.WriteFile(imageConfigPath, imageConfigBytes, 0644); err != nil {
+	imageConfigStr := strings.Join([]string{string(imageConfigBytes), "\n"}, "")
+
+	if err = ioutil.WriteFile(imageConfigPath, []byte(imageConfigStr), 0644); err != nil {
 		log.Errorf("Record container Name:ID fail err : %v", err)
 	}else {
 		log.Debugf("Record image : %v:%v config success", imageName, imageTag)
@@ -226,7 +229,7 @@ func recordImageMateDataInfo(imageMateDataInfo *container.ImageMateDataInfo, ima
 		log.Errorf("Record imageMateDataInfo error %v", err)
 		return 
 	}
-	imageMateDataInfoStr := string(imageMateDataInfoBytes)
+	imageMateDataInfoStr := strings.Join([]string{string(imageMateDataInfoBytes), "\n"}, "")
 
 	// 创建 /[imageMateDataDir]/[imageID].json
 	imageMateDataInfoFile := path.Join(container.ImageMateDateDir, strings.Join([]string{imageID, ".json"}, ""))

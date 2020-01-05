@@ -239,7 +239,7 @@ func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) erro
 		log.Errorf("Record container info error %v", err)
 		return err
 	}
-	containerInfoStr := string(containerInfoBytes)
+	containerInfoStr := strings.Join([]string{string(containerInfoBytes), "\n"}, "")
 	
 
 	// 创建 /[containerDir]/[containerID]/ 目录

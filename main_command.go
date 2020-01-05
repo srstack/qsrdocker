@@ -256,3 +256,22 @@ var execCmd = cli.Command{
 		return nil
 	},
 }
+
+// inspectCmd  qsrdocker inspect [containerName/ID]  获取容器信息
+var inspectCmd = cli.Command{
+	Name:  "inspect",
+	Usage: "Print info of a container",
+	ArgsUsage: "[containerName]",
+	Action: func(context *cli.Context) error {
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Please input container Name")
+		}
+
+		
+		containerName := context.Args().Get(0)
+
+		// 打印 log
+		inspectContainer(containerName)
+		return nil
+	},
+}
