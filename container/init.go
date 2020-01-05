@@ -17,13 +17,12 @@ import (
 func RunContainerInitProcess() error {
 	// 获取用户输入
 	cmdList := readUserCmd()
-
 	log.Debugf("Get cmdList %v from user", cmdList)
-
-	if len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "" {
-		return fmt.Errorf("Run container get user command error, command is nil")
-	}
 	
+	if len(cmdList) == 0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {
+			return fmt.Errorf("Run container get command is nil")
+	}
+
 	// 设置根目录挂载点
 	setUpMount()
 
@@ -32,13 +31,13 @@ func RunContainerInitProcess() error {
 
 	if err != nil {
 		log.Errorf("Exec Loop Path error : %v", err)
+	} else {
+		log.Debugf("Find command absPATH : %s", absPath)
 	}
-
-	log.Debugf("Find command absPATH : %s", absPath)
 
 	// exec 创建真正的容器种需要运行的进程
 	 if err := syscall.Exec(absPath, cmdList[0:], os.Environ()); err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("Init container process error %v", err.Error())
 	}
 
 	return nil

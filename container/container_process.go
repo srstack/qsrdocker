@@ -10,76 +10,12 @@ import (
 	"io/ioutil"
 	"strconv"
 	"encoding/json"
-	"qsrdocker/cgroups"
 
 	log "github.com/sirupsen/logrus"
 )
 
-// 路径相关信息
-var (
-	// RootDir qsrdocker 相关运行文件保存根路径
-	RootDir					string = "/var/qsrdocker"
-	// ImageDir 镜像文件存放路径
-	ImageDir				string = path.Join(RootDir, "image")
-	// MountDir imageName : imageID 的映射, ImageInfoFile 将映射写在文件中
-	MountDir				string = path.Join(RootDir, "overlay2")
-	// ContainerDir 容器信息存放 
-	ContainerDir				string = path.Join(RootDir, "container")
-)
-
-// 文件相关信息
-var (
-	ConfigName          string = "config.json"
-	ContainerLogFile    string = "container.log"
-	ImageInfoFile		string = "repositories.json"
-	ContainerNameFile 	string = "containernames.json"
-	// 默认引擎为 overlay2
-	Driver				string = "overlay2"
-	MountType			string = "bind"
-)
-
-// ContainerInfo 容器基本信息描述
-type ContainerInfo struct {    
-	ID          string 					`json:"ID"`          	//容器Id
-	Name        string 					`json:"Name"`        	//容器名
-	Command     []string 				`json:"Command"`    	//容器内init运行命令
-	CreatedTime string 					`json:"CreateTime"` 	//创建时间
-	Status      *StatusInfo 			`json:"Status"` 		//容器的状态
-	Driver		string 					`json:"Driver"`  		// 容器存储引擎
-	GraphDriver *DriverInfo 			`json:"GraphDriver"` 	// 镜像挂载信息
-	Mount		[]*MountInfo			`json:"Mount"`			// 数据卷数据
-	Cgroup		*cgroups.CgroupManager	`json:"Cgroup"`			// Cgroup 信息
-	TTy			bool					`json:"Tty"`
-	Image		string					`json"Image"`			// Image 镜像信息
-}
-
-// DriverInfo 镜像挂载信息
-type DriverInfo struct {
-	Driver	string 				`json:"Driver"`  // 容器存储引擎
-	Data	map[string]string	`json:"Data"`	// 挂载信息
-}
-
-// StatusInfo 容器状态信息
-type StatusInfo struct {
-	Pid         int 	`json:"Pid"`		//容器的init进程在宿主机上的 PID
-	Status		string `json:"Status"`
-	Running		bool   `json:"Running"`		// qsrdocker run/start
-	Paused	 	bool   `json:"Paused"`		// qsrdocker stop
-    OOMKilled	bool   `json:"OOMKilled"`	
-	Dead		bool   `json:"Dead"`		// 异常退出，不是由 stop 退出
-	StartTime	string `json:"StartTime"`
-}
-
-// MountInfo 数据卷挂载信息
-type MountInfo struct {
-	Type		string 	// 默认为"bind"
-	Source 		string 
-	Destination	string
-	RW			bool	// true
-}
-
 // NewParentProcess 创建 runC 的守护进程
-func NewParentProcess(tty bool, containerName, containerID, imageName string) (*exec.Cmd, *os.File, *DriverInfo) {
+func NewParentProcess(tty bool, containerName, containerID, imageName string, envSlice []string) (*exec.Cmd, *os.File, *DriverInfo) {
 
 	/*
 		1. 第一个参数为初始化 init RunContainerInitProcess
@@ -93,16 +29,15 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 	// 打印 command 
 	//log.Debugf("Create Parent Process cmd: %v", command)
 	
-	readPipe, writePipe, err := NewPipe()
-
+	readCmdPipe, writeCmdPipe, err := NewPipe()
+	
 	if err != nil {
-		log.Errorf("Create New pipe err: %v", err)
+		log.Errorf("Create New Cmd pipe err: %v", err)
 		return nil, nil, nil
 	}
 
 	// exec 方式直接运行 qsrdocker init 
 	cmd := exec.Command("/proc/self/exe", "init") // 执行 initCmd
-
 	uid := syscall.Getuid() // 字符串转int
 	gid := syscall.Getgid()
 
@@ -165,12 +100,13 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 	}
 
 	// 传入管道问价读端fld
-	cmd.ExtraFiles = []*os.File {readPipe}
+	cmd.ExtraFiles = []*os.File {readCmdPipe}
 	// 一个进程的文件描d述符默认 0 1 2 代表 输入 输出 错误 
-	// readPipe 为外带的第四个文件描述符 下标为 3
+	// readCmdPipe 为外带的第四个文件描述符 下标为 3
 
 	// 设置进程环境变量
-	//cmd.Env = append(os.Environ(), envSlice...)
+	cmd.Env = append([]string{}, envSlice...)
+	log.Debugf("Set container Env : %v", cmd.Env)
 
 	// 创建容器运行目录
 	// 创建容器映射数据卷
@@ -190,10 +126,10 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string) (*
 
 	log.Debugf("Set qsrdocker : %v run dir : %v", containerID, path.Join(MountDir, containerID, "merged"))
 
-	return cmd, writePipe, driverInfo // 返回给 Run 写端fd，用于接收用户参数
+	return cmd, writeCmdPipe, driverInfo // 返回给 Run 写端fd，用于接收用户参数
 }
 
-// NewPipe 创建匿名管道实现 runC进程和parent进程通信
+// NewPipe 创建匿名管道实现 container 进程和 qsrdocker 进程通信
 func NewPipe() (*os.File, *os.File, error) {
 	read, write, err := os.Pipe() //创建管道，半双工模型
 	if err != nil {
@@ -304,6 +240,7 @@ func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) erro
 		return err
 	}
 	containerInfoStr := string(containerInfoBytes)
+	
 
 	// 创建 /[containerDir]/[containerID]/ 目录
 	containerDir := path.Join(ContainerDir, containerID)
@@ -328,4 +265,108 @@ func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) erro
 	}
 
 	return nil
+}
+
+// GetContainerIDByName 通过 Name 获取 ID 
+func GetContainerIDByName(containerName string) (string, error) {
+	// 判断 container 目录是否存在
+	if exist, _ := PathExists(ContainerDir); !exist {
+		err := os.MkdirAll(ContainerDir, 0622)
+		if err != nil {
+			return "", fmt.Errorf("Mkdir container dir fail err : %v", err)
+		}
+	}
+	// 创建反序列化载体  {"name":"id"}
+	var containerNameConfig map[string]string
+
+	// 映射文件目录
+	containerNamePath := path.Join(ContainerDir, ContainerNameFile)
+
+	// 判断映射文件是否存在
+	if exist, _ := PathExists(containerNamePath); !exist {
+
+		// 文件不存在直接返回
+		return "", nil
+	} 
+	
+	// 映射文件存在
+	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
+	data, err := ioutil.ReadFile(containerNamePath)
+	if err != nil {
+		return "", fmt.Errorf("Can't open containerNameConfig : %v", containerNamePath)
+	}
+
+	//读取的数据为json格式，需要进行解码
+	err = json.Unmarshal(data, &containerNameConfig)
+	if err != nil {
+		return "", fmt.Errorf("Can't Unmarshal : %v", containerNamePath)
+	}
+
+	// 获取到容器ID
+	if ID, e := containerNameConfig[containerName]; e {
+		return ID, nil
+	}
+	
+	// 未获取到容器ID
+	return "", fmt.Errorf("Container Name:ID %v not in config file", containerName)
+}
+
+// GetContainerInfoByNameID 通过容器ID/Name获取容器info
+func GetContainerInfoByNameID(containerName string) (*ContainerInfo, error) {
+	// 获取 container ID
+	containerID, err := GetContainerIDByName(containerName)
+
+	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
+		return nil, fmt.Errorf("Get containerID fail : %v", err)
+	}
+	
+	// 配置目录	
+	containerConfigFile := path.Join(ContainerDir, containerID, ConfigName)
+
+	// 获取容器配置信息
+	configBytes, err := ioutil.ReadFile(containerConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 反序列化
+	var containerInfo ContainerInfo
+	if err := json.Unmarshal(configBytes, &containerInfo); err != nil {
+		return nil, err
+	}
+
+	// 检测当前状态
+	containerInfo.Status.StatusCheck()
+
+	// 持久化当前状态
+	RecordContainerInfo(&containerInfo, containerID)
+	
+	return &containerInfo, nil
+}
+
+// GetImageMateDataInfoByName 通过镜像Name获取镜像runtime info
+func GetImageMateDataInfoByName(imageName string) (*ImageMateDataInfo, error) {
+	// 获取 image id 
+	imageLower := GetImageLower(imageName)
+
+	imageID := strings.Split(imageLower,":")[0]
+
+	log.Debugf("Get image ID is : %v", imageID)
+	
+	// 配置目录	
+	imageMateDataInfoFile := path.Join(ImageMateDateDir, strings.Join([]string{imageID, ".json"}, ""))
+
+	// 获取容器配置信息
+	infoBytes, err := ioutil.ReadFile(imageMateDataInfoFile)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 反序列化
+	var imageMateDataInfo ImageMateDataInfo
+	if err := json.Unmarshal(infoBytes, &imageMateDataInfo); err != nil {
+		return nil, err
+	}
+	
+	return &imageMateDataInfo, nil
 }

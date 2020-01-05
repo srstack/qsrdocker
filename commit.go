@@ -41,7 +41,7 @@ func CommitContainer(containerName, imageNameTag string) {
 	log.Debugf("Get new image Tag is %v", imageTag)
 	log.Debugf("Get new image ID is %v", imageID)
 
-	containerID, err := ContainerNameToID(containerName)
+	containerID, err := container.GetContainerIDByName(containerName)
 	
 	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
 		log.Errorf("Get containerID fail : %v", err)
@@ -49,6 +49,23 @@ func CommitContainer(containerName, imageNameTag string) {
 	}
 
 	log.Debugf("Get containerID success  id : %v", containerID)
+
+	// 获取containerInfo信息
+	containerInfo, err := container.GetContainerInfoByNameID(containerID)
+	if err != nil {
+		log.Errorf("Get containerInfo fail : %v", err)
+		return
+	}
+	
+	// 获取 容器的 运行状态
+	imageMateDataInfo := &container.ImageMateDataInfo{
+		Path: containerInfo.Path,
+		Args: containerInfo.Args,
+		Env: containerInfo.Env,
+	}
+	
+	// 持久化 imageMateDataInfo
+	recordImageMateDataInfo(imageMateDataInfo, imageID)
 	
 	// 容器工作目录
 	// 容器 COW 层数据 ，分层镜像
@@ -189,4 +206,40 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 	}else {
 		log.Debugf("Record image : %v:%v config success", imageName, imageTag)
 	}		
+}
+
+
+// recordImageMateDataInfo 保存 image runtime 信息
+func recordImageMateDataInfo(imageMateDataInfo *container.ImageMateDataInfo, imageID string) {
+	
+	// 判断 container 目录是否存在
+	if exist, _ := container.PathExists(container.ImageMateDateDir); !exist {
+		err := os.MkdirAll(container.ImageMateDateDir, 0622)
+		if err != nil {
+			log.Errorf("Mkdir image matedata dir fail err : %v", err)
+		}
+	}
+
+	// 序列化 container info 
+	imageMateDataInfoBytes, err := json.Marshal(imageMateDataInfo)
+	if err != nil {
+		log.Errorf("Record imageMateDataInfo error %v", err)
+		return 
+	}
+	imageMateDataInfoStr := string(imageMateDataInfoBytes)
+
+	// 创建 /[imageMateDataDir]/[imageID].json
+	imageMateDataInfoFile := path.Join(container.ImageMateDateDir, strings.Join([]string{imageID, ".json"}, ""))
+	InfoFileFd ,err := os.Create(imageMateDataInfoFile )
+	defer InfoFileFd.Close()
+	if err != nil {
+		log.Errorf("Create image matedata File %s error %v", imageMateDataInfoFile, err)
+		return 
+	}
+
+	// 写入 containerInfo
+	if _, err := InfoFileFd.WriteString(imageMateDataInfoStr); err != nil {
+		log.Errorf("Write image matedata Info error %v", err)
+		return 
+	}
 }

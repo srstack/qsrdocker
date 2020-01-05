@@ -56,7 +56,8 @@ func listContainers(all bool) {
 			info.Name,
 			info.Status.Pid,
 			info.Status.Status,
-			strings.Join(info.Command," "),
+			//  path + args
+			strings.Join(append([]string{info.Path}, info.Args...)," "),
 			// 匿名函数
 			func(info *container.ContainerInfo) string {
 				if info.Status.Running {

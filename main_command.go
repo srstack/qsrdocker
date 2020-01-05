@@ -49,7 +49,11 @@ var runCmd = cli.Command{
 		// 存在多个 -v 操作
 		cli.StringSliceFlag{
 			Name:  "v", // 数据卷
-			Usage: "Volume",
+			Usage: "Set volume mount",
+		},
+		cli.StringSliceFlag{
+			Name:  "e",
+			Usage: "Set environment",
 		},
 	},
 
@@ -85,6 +89,9 @@ var runCmd = cli.Command{
 		// 数据卷
 		volumes := context.StringSlice("v")
 
+		// 数据卷
+		envSlice := context.StringSlice("e")
+
 		if tty && detach {
 			return fmt.Errorf("ti and detach parameter can not both provided")
 		}
@@ -100,7 +107,7 @@ var runCmd = cli.Command{
 			CPUMem:    	 context.String("cpumem"),
 		}
 
-		QsrdockerRun(tty, cmdList, volumes, resConfig, imageName, containerName)
+		QsrdockerRun(tty, cmdList, volumes, envSlice, resConfig, imageName, containerName)
 		return nil
 	},
 }

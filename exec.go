@@ -77,11 +77,11 @@ func ExecContainer(tty bool, containerName string, cmdList []string) {
 }
 
 
-// GetContainerStatusByName 通过容器名获取容器进程 PID
+// GetContainerStatusByName 通过容器名获取容器状态信息
 func GetContainerStatusByName(containerName string) (*container.StatusInfo, error) {
 
 	// 获取 container ID
-	containerID, err := ContainerNameToID(containerName)
+	containerID, err := container.GetContainerIDByName(containerName)
 
 	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
 		return nil, fmt.Errorf("Get containerID fail : %v", err)

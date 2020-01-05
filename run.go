@@ -17,7 +17,7 @@ import (
 )
 
 // QsrdockerRun 启动客户端
-func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.ResourceConfig, 
+func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subsystems.ResourceConfig, 
 	imageName, containerName string) {
 
 	// 获取容器id
@@ -29,7 +29,7 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 	log.Debugf("Container ID is %v", containerID)
 
 	// 检测 containerName 是否被使用
-	cID, err := ContainerNameToID(containerName)
+	cID, err := container.GetContainerIDByName(containerName)
 
 	// cID == ""  三种情况
 	// 1. can't get container Name:ID info cID == ""  err != nil  未通过测试，直接返回
@@ -45,11 +45,28 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 		log.Errorf("Container Name have been used in Container ID : %v", cID)
 		return 
 	}
+
+	// 获取 imageMateDataInfo 
+	// 忽略错误， 存在初始镜像无 runtime 目录的情况
+	imageMateDataInfo, _ := container.GetImageMateDataInfoByName(imageName)
+	if imageMateDataInfo != nil {
+		// 将上一镜像的环境变量加入到envSlice中
+		// 倒叙插入... 防止新设置的环境变量被老的环境变量取代
+		log.Debugf("Get image runtime Env : %v", imageMateDataInfo.Env)
+		envSlice = append(imageMateDataInfo.Env, envSlice...)
+
+		// 若 cmd list 为空则且镜像runtime存在 run cmd 
+		if len(cmdList) ==0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {
+			if strings.ReplaceAll(imageMateDataInfo.Path, " ", "") != ""  {
+				cmdList = append([]string{imageMateDataInfo.Path}, imageMateDataInfo.Args...)
+			}
+		}
+	}
 	
 	// 获取管道通信
-	containerProcess, writePipe, driverInfo := container.NewParentProcess(tty, containerName ,containerID, imageName)
+	containerProcess, writeCmdPipe, driverInfo := container.NewParentProcess(tty, containerName ,containerID, imageName, envSlice)
 
-	if containerProcess == nil || writePipe == nil || driverInfo == nil {
+	if containerProcess == nil || writeCmdPipe == nil || driverInfo == nil {
 		log.Errorf("New parent process error")
 		return
 	}
@@ -62,11 +79,10 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 
 	log.Debugf("Create container process success, pis is %v ", containerProcess.Process.Pid)
 
-	// 设置 container info
+	// 设置 新的 container info
 	containerInfo := &container.ContainerInfo{
 		ID: containerID,  // 容器ID 
 		Name: containerName, // 容器name
-		Command: cmdList[0:], // 输入 cmd 
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
 		Status: &container.StatusInfo{
 			Pid: containerProcess.Process.Pid, // 容器进程 pid
@@ -76,6 +92,12 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 		GraphDriver: driverInfo,
 		TTy: tty,
 		Image: imageName,
+		Path: cmdList[0],
+		Env: envSlice, // 这里不需要加入 os.env() 仅仅只需要存入 镜像runtime + run -e 输入 
+	}
+
+	if len(cmdList) >= 1 {
+		containerInfo.Args = cmdList[1:]
 	}
 
 	// 检测 container 进程 状态
@@ -104,9 +126,9 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 
 	// 将 cgroup 信息 存入 containerinfo
 	containerInfo.Cgroup = cgroupManager
-	
+		
 	// 将用户命令发送给守护进程 Parent
-	sendInitCommand(cmdList, writePipe)
+	sendInitCommand(cmdList, writeCmdPipe)
 
 	// 完成 ContainerName: ContainerID 的映射关系
 	recordContainerNameInfo(containerName, containerID)
@@ -133,6 +155,23 @@ func QsrdockerRun(tty bool, cmdList, volumes []string, resConfig *subsystems.Res
 
 	// 后台启动不需要 exit 了
 	//os.Exit(-1)
+}
+
+// readContainerPath 获取用户参数
+func readContainerPath(readPipe *os.File) string {
+
+	defer readPipe.Close()
+	pathByte, err := ioutil.ReadAll(readPipe)
+
+	if err != nil {
+		log.Errorf("Get container Path error : %v", err)
+		return ""
+	}
+
+	// 传过来的是字节
+	pathString := string(pathByte)
+	
+	return pathString
 }
 
 // sendInitCommand 将用户命令发送给守护进程 Parent
@@ -259,50 +298,6 @@ func recordContainerNameInfo(containerName, containerID string) {
 	}else {
 		log.Debugf("Record container Name:ID success")
 	}		
-}
-
-// ContainerNameToID 通过 Name 获取 ID 
-func ContainerNameToID(containerName string) (string, error) {
-	// 判断 container 目录是否存在
-	if exist, _ := container.PathExists(container.ContainerDir); !exist {
-		err := os.MkdirAll(container.ContainerDir, 0622)
-		if err != nil {
-			return "", fmt.Errorf("Mkdir container dir fail err : %v", err)
-		}
-	}
-	// 创建反序列化载体  {"name":"id"}
-	var containerNameConfig map[string]string
-
-	// 映射文件目录
-	containerNamePath := path.Join(container.ContainerDir, container.ContainerNameFile)
-
-	// 判断映射文件是否存在
-	if exist, _ := container.PathExists(containerNamePath); !exist {
-
-		// 文件不存在直接返回
-		return "", nil
-	} 
-	
-	// 映射文件存在
-	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
-	data, err := ioutil.ReadFile(containerNamePath)
-	if err != nil {
-		return "", fmt.Errorf("Can't open containerNameConfig : %v", containerNamePath)
-	}
-
-	//读取的数据为json格式，需要进行解码
-	err = json.Unmarshal(data, &containerNameConfig)
-	if err != nil {
-		return "", fmt.Errorf("Can't Unmarshal : %v", containerNamePath)
-	}
-
-	// 获取到容器ID
-	if ID, e := containerNameConfig[containerName]; e {
-		return ID, nil
-	}
-	
-	// 未获取到容器ID
-	return "", fmt.Errorf("Container Name:ID %v not in config file", containerName)
 }
 
 // RemoveContainerNameInfo 删除 name : id 映射
