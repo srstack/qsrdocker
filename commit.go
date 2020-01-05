@@ -157,7 +157,7 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 		imageConfig[imageName][imageTag] = imageLower
 		
 		// 存入数据
-		imageConfigBytes, err := json.Marshal(imageConfig)
+		imageConfigBytes, err := json.MarshalIndent(imageConfig, " ", "    ") 
 		if err != nil {
 			log.Errorf("Record image : %v:%v config err : %v", imageName, imageTag, err)
 			return 
@@ -195,7 +195,7 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 	imageConfig[imageName][imageTag] = imageLower
 	
 	// 存入数据
-	imageConfigBytes, err := json.Marshal(imageConfig)
+	imageConfigBytes, err := json.MarshalIndent(imageConfig, " ", "    ")
 	if err != nil {
 		log.Errorf("Record image : %v:%v config err : %v", imageName, imageTag, err)
 		return 
@@ -221,7 +221,7 @@ func recordImageMateDataInfo(imageMateDataInfo *container.ImageMateDataInfo, ima
 	}
 
 	// 序列化 container info 
-	imageMateDataInfoBytes, err := json.Marshal(imageMateDataInfo)
+	imageMateDataInfoBytes, err := json.MarshalIndent(imageMateDataInfo, " ", "    ")
 	if err != nil {
 		log.Errorf("Record imageMateDataInfo error %v", err)
 		return 

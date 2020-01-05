@@ -246,7 +246,7 @@ func recordContainerNameInfo(containerName, containerID string) {
 		}
 
 		// 存入数据
-		containerNameConfigBytes, err := json.Marshal(containerNameConfig)
+		containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig," ", "    ")
 		if err != nil {
 			log.Errorf("Record container Name:ID error %v", err)
 			return 
@@ -287,7 +287,7 @@ func recordContainerNameInfo(containerName, containerID string) {
 	}
 
 	// 存入数据
-	containerNameConfigBytes, err := json.Marshal(containerNameConfig)
+	containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig," ", "    ")
 	if err != nil {
 		log.Errorf("Record container Name:ID error %v", err)
 		return 
@@ -334,7 +334,7 @@ func RemoveContainerNameInfo(containerName, containerID string) {
 	}
 
 	// 存入数据
-	containerNameConfigBytes, err := json.Marshal(containerNameConfig)
+	containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig, " ", "    ")
 	if err != nil {
 		log.Errorf("Remove container Name:ID error %v", err)
 		return 

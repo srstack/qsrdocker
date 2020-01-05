@@ -234,7 +234,7 @@ func GetContainerInfo(file os.FileInfo) (*ContainerInfo, error) {
 func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) error {
 
 	// 序列化 container info 
-	containerInfoBytes, err := json.Marshal(containerInfo)
+	containerInfoBytes, err := json.MarshalIndent(containerInfo, " ", "    ")
 	if err != nil {
 		log.Errorf("Record container info error %v", err)
 		return err
