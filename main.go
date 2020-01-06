@@ -28,6 +28,8 @@ func main() {
 		logCmd,
 		execCmd,
 		inspectCmd,
+		stopCmd,
+		removeCmd,
 	}
 
 	// 设定log配置项

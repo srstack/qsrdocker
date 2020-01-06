@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"encoding/json"
+	"strconv"
 	"qsrdocker/container"
 
 	log "github.com/sirupsen/logrus"
@@ -56,6 +57,13 @@ func CommitContainer(containerName, imageNameTag string) {
 		log.Errorf("Get containerInfo fail : %v", err)
 		return
 	}
+
+	if containerInfo.Status.Running {
+		containerEnvSlice := getEnvSliceByPid(strconv.Itoa(containerInfo.Status.Pid))
+		// 可能存在 container 设置的环境变量
+		containerInfo.Env = append(containerInfo.Env, containerEnvSlice...)
+		containerInfo.Env = container.RemoveReplicaSliceString(containerInfo.Env)	
+	}
 	
 	// 获取 容器的 运行状态
 	imageMateDataInfo := &container.ImageMateDataInfo{
@@ -64,6 +72,7 @@ func CommitContainer(containerName, imageNameTag string) {
 		Env: containerInfo.Env,
 	}
 	
+	container.RecordContainerInfo(containerInfo, containerID)
 	// 持久化 imageMateDataInfo
 	recordImageMateDataInfo(imageMateDataInfo, imageID)
 	

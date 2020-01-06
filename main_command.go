@@ -183,11 +183,11 @@ var logCmd = cli.Command{
 	ArgsUsage: "[containerName]",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
-			Name:    "f,follow", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Name:    "f,follow", // tail -f 追踪
 			Usage:   `Follow log output`,
 		},
 		cli.IntFlag{
-			Name:    "t,tail", // 指定 t 参数即当前的输入输出导入到标准输入输出
+			Name:    "t,tail", // tail 现在末尾几行
 			Usage:   `Show from the end of the logs (default "all")`,
 		},
 	},
@@ -272,6 +272,59 @@ var inspectCmd = cli.Command{
 
 		// 打印 log
 		inspectContainer(containerName)
+		return nil
+	},
+}
+
+// stopCmd 暂停 运行中的容器
+var stopCmd = cli.Command{
+	Name:  "stop",
+	Usage: "Stop a container",
+	ArgsUsage: "[containerName]",
+	Flags: []cli.Flag{
+		cli.IntFlag{
+			Name:    "t", // 指定 t 
+			Usage:   `Seconds to wait for stop before killing it`,
+		},
+	},
+	Action: func(context *cli.Context) error {
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Missing container name")
+		}
+
+		sleepTime := context.Int("t")
+
+		containerName := context.Args().Get(0)
+		stopContainer(containerName, sleepTime)
+		return nil
+	},
+}
+
+// removeCmd 删除 Dead / Stop 的容器  -f 强制停止
+var removeCmd = cli.Command{
+	Name:  "rm",
+	Usage: "remove unused containers",
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:    "f", // 强制删除容器
+			Usage:   `Force the removal of a running container (uses SIGKILL)`,
+		},
+		cli.BoolFlag{
+			Name:    "v", // 强制删除容器
+			Usage:   `Remove the volumes associated with the container`,
+		},
+	},
+	Action: func(context *cli.Context) error {
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Missing container name")
+		}
+
+		// 获取参数
+		Force := context.Bool("f")
+		volume := context.Bool("v")
+
+		containerName := context.Args().Get(0)
+		removeContainer(containerName, Force, volume)
 		return nil
 	},
 }

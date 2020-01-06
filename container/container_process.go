@@ -171,9 +171,12 @@ func InitUserNamespace() error {
 
 // StatusCheck 检测当前 container 状态
 func (s *StatusInfo) StatusCheck(){
-	if exist, err := PathExists(path.Join("/proc", strconv.Itoa(s.Pid))); (!exist || err != nil) && !s.Paused {
+	if exist, err := PathExists(path.Join("/proc", strconv.Itoa(s.Pid))); !exist || err != nil {
 		// 不是 qsrdocker stop ，则设置 dead
-		s.StatusSet("Dead")
+		if !s.Paused {
+			s.StatusSet("Dead")
+		}
+		
 	} else {
 		s.StatusSet("Running")
 	}
@@ -369,4 +372,34 @@ func GetImageMateDataInfoByName(imageName string) (*ImageMateDataInfo, error) {
 	}
 	
 	return &imageMateDataInfo, nil
+}
+
+// RemoveReplicaSliceString : 切片去重
+func RemoveReplicaSliceString(srcSlice []string) []string {
+ 
+	resultSlice := make([]string, 0)
+	// 利用map key 值唯一去重
+    tempMap := make(map[string]bool, len(srcSlice))
+    for _, v := range srcSlice{
+        if tempMap[v] == false{
+            tempMap[v] = true
+            resultSlice = append(resultSlice, v)
+        }
+    }
+    return resultSlice
+}
+
+
+// RemoveNullSliceString : 删除空白字符的元素
+func RemoveNullSliceString(srcSlice []string) []string {
+ 
+	resultSlice := make([]string, 0)
+
+	// 循环判断
+    for _, v := range srcSlice{
+        if v != "" && v != " " {
+            resultSlice = append(resultSlice, v)
+        }
+    }
+    return resultSlice
 }

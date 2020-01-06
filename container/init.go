@@ -17,6 +17,8 @@ import (
 func RunContainerInitProcess() error {
 	// 获取用户输入
 	cmdList := readUserCmd()
+	// 去除空白字符
+	cmdList = RemoveNullSliceString(cmdList)
 	log.Debugf("Get cmdList %v from user", cmdList)
 	
 	if len(cmdList) == 0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {

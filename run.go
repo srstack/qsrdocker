@@ -54,6 +54,8 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 		// 倒叙插入... 防止新设置的环境变量被老的环境变量取代
 		log.Debugf("Get image runtime Env : %v", imageMateDataInfo.Env)
 		envSlice = append(imageMateDataInfo.Env, envSlice...)
+		// 去重且去除空白字符
+		envSlice = container.RemoveReplicaSliceString(container.RemoveNullSliceString(envSlice))
 
 		// 若 cmd list 为空则且镜像runtime存在 run cmd 
 		if len(cmdList) ==0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {
@@ -146,7 +148,7 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 			log.Errorf("Error: %v", err)
 		}
 
-		RemoveContainerNameInfo(containerName, containerID)
+		RemoveContainerNameInfo(containerID)
 		// 删除 cgroup
 		cgroupManager.Destroy()
 	} else {
@@ -305,7 +307,23 @@ func recordContainerNameInfo(containerName, containerID string) {
 }
 
 // RemoveContainerNameInfo 删除 name : id 映射
-func RemoveContainerNameInfo(containerName, containerID string) {
+func RemoveContainerNameInfo(containerID string) {
+
+	containerName := ""
+
+	// 获取containerInfo信息
+	containerInfo, err := container.GetContainerInfoByNameID(containerID)
+	if err != nil {
+		log.Errorf("Get containerInfo fail : %v", err)
+		return
+	}
+
+	// 通过ID获取 Name 信息
+	if containerInfo.Name == containerID {
+		containerName = containerID
+	} else {
+		containerName = containerInfo.Name
+	}
 	
 	// 创建反序列化载体  {"name":"id"}
 	var containerNameConfig map[string]string
