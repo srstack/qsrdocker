@@ -117,7 +117,7 @@ init 初始化函数, 该函数/操作为 runCmd 默认会调用的内部方法�
 */
 var initCmd = cli.Command{
 	Name: "init",
-	Usage: `init container process run user's process in container, Do not call it outside.
+	Usage: `Init container process run user's process in container, Do not call it outside.
 		Warring: you can not use init in bash/sh !`,
 	HideHelp: true, // 隐藏 init命令
 	Hidden: true,
@@ -157,7 +157,7 @@ var commitCmd = cli.Command {
 // listCmd: qsrdocker ps [-a] []
 var listCmd = cli.Command{
 	Name: "ps",
-	Usage: "list all the container",
+	Usage: "List all the container",
 	ArgsUsage: "[]",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
@@ -232,7 +232,7 @@ var execCmd = cli.Command{
 		// 获取环境变量
 		// 第一次调用的时候会是否
 		if strings.Replace(os.Getenv(ENVEXECPID), " ", "", -1) != "" {
-			log.Debugf("Exec callback pid %s", os.Getgid())
+			log.Debugf("Exec callback Pid %v , container Pid %s", os.Getgid(), os.Getenv(ENVEXECPID))
 			return nil
 		}
 		
@@ -283,7 +283,8 @@ var stopCmd = cli.Command{
 	ArgsUsage: "[containerName]",
 	Flags: []cli.Flag{
 		cli.IntFlag{
-			Name:    "t", // 指定 t 
+			Name:  	"t", // 指定 t 
+			Value: 	10,
 			Usage:   `Seconds to wait for stop before killing it`,
 		},
 	},

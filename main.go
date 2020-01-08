@@ -17,7 +17,7 @@ func main() {
 	qsrdocker.Name = "qsrdocker"
 	qsrdocker.UsageText = usage
 	qsrdocker.Usage = usage
-	qsrdocker.Version = "1.0.0"
+	qsrdocker.Version = "1.2.1"
 
 	// 定义cli的runCmd initCmd
 	qsrdocker.Commands = []cli.Command{
@@ -31,6 +31,7 @@ func main() {
 		stopCmd,
 		removeCmd,
 		startCmd,
+		imageCmd,
 	}
 
 	// 设定log配置项

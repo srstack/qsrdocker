@@ -23,34 +23,34 @@ __attribute__((constructor)) void enter_namespace(void) {
 
 	// 定义字符指针，用于存储 container 进程 PID
 	// 字符指针 = 字符数组 = 字符串
-	char *qsrdocker_pid;
+	char *QSRDOCKER_PID;
 
 	// 从环境变量中获取 PID
-	qsrdocker_pid = getenv("qsrdocker_pid");
+	QSRDOCKER_PID = getenv("QSRDOCKER_PID");
 
 	// 
-	if (qsrdocker_pid) {
+	if (QSRDOCKER_PID) {
 		// debug log
-		// fprintf(stdout, "got qsrdocker_pid=%s\n", qsrdocker_pid);
+		// fprintf(stdout, "got QSRDOCKER_PID=%s\n", QSRDOCKER_PID);
 	} else {
 		// debug log
-		// fprintf(stdout, "missing qsrdocker_pid env skip nsenter");
+		// fprintf(stdout, "missing QSRDOCKER_PID env skip nsenter");
 
 		// 没获取到 pid 直接退出
 		return;
 	}
 
 	// 存取 执行的命令
-	char *qsrdocker_cmd;
+	char *QSRDOCKER_CMD;
 
 	// 从环境变量中获取执行的命令
-	qsrdocker_cmd = getenv("qsrdocker_cmd");
-	if (qsrdocker_cmd) {
+	QSRDOCKER_CMD = getenv("QSRDOCKER_CMD");
+	if (QSRDOCKER_CMD) {
 		// debug log
-		// fprintf(stdout, "got qsrdocker_cmd=%s\n", qsrdocker_cmd);
+		// fprintf(stdout, "got QSRDOCKER_CMD=%s\n", QSRDOCKER_CMD);
 	} else {
 		// debug log
-		// fprintf(stdout, "missing qsrdocker_cmd env skip nsenter");
+		// fprintf(stdout, "missing QSRDOCKER_CMD env skip nsenter");
 
 		// 没获取到直接退出
 		return;
@@ -67,7 +67,7 @@ __attribute__((constructor)) void enter_namespace(void) {
 
 	for (i=0; i<6; i++) {
 		// 拼接进程ns目录 
-		sprintf(nspath, "/proc/%s/ns/%s", qsrdocker_pid, namespaces[i]);
+		sprintf(nspath, "/proc/%s/ns/%s", QSRDOCKER_PID, namespaces[i]);
 
 		// 获取 ns 描述信息
 		int fd = open(nspath, O_RDONLY);
@@ -86,7 +86,7 @@ __attribute__((constructor)) void enter_namespace(void) {
 	}
 
 	// 进入新的 namespace 执行命令
-	int res = system(qsrdocker_cmd);
+	int res = system(QSRDOCKER_CMD);
 	exit(0);
 	return;
 }

@@ -18,9 +18,9 @@ import (
 )
 
 // ENVEXECPID 环境变量 Pid
-const ENVEXECPID = "qsrdocker_pid"
+const ENVEXECPID = "QSRDOCKER_PID"
 // ENVEXECCMD 环境变量 cmd
-const ENVEXECCMD = "qsrdocker_cmd"
+const ENVEXECCMD = "QSRDOCKER_CMD"
 
 // ExecContainer 登陆到已经创建好的 qsrdocker 
 func ExecContainer(tty bool, containerName string, cmdList []string) {
@@ -56,20 +56,20 @@ func ExecContainer(tty bool, containerName string, cmdList []string) {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
-	
-	// 设置环境变量
-	os.Setenv(ENVEXECPID, pid)
-	os.Setenv(ENVEXECCMD, cmdStr)
-	
+
 	// 获取进程环境变量  
 	// 在 run 创建 container 时，可能设置了环境变量
 	containerEnvSlice := getEnvSliceByPid(pid)
 
+	// 设置环境变量
+	envPid := strings.Join([]string{ENVEXECPID, pid}, "=")
+	envCmd := strings.Join([]string{ENVEXECCMD, cmdStr}, "=")
+
 	// 将上面获取到的环境变量通过加入到 cmd 的环境变量中
 	// 便于后面再一次调用时触发 nsenter
-	// os.Environ() == os.Setenv() 的
 	// containerEnvSlice == 容器创建时设置的
-	cmd.Env = append(os.Environ(), containerEnvSlice...)
+	cmd.Env = append([]string{envPid, envCmd}, containerEnvSlice...)
+	log.Debugf("Set exec container %s env %v", containerName, cmd.Env)
 
 	if err := cmd.Run(); err != nil {
 		log.Errorf("Exec container %s error %v", containerName, err)
