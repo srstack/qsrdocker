@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+	"syscall"
+	"time"
 	"path/filepath"
 	"encoding/json"
 	"text/tabwriter"
@@ -62,17 +64,18 @@ var imageLsCmd = cli.Command {
 		}
 
 		// 使用 tabwriter.NewWriter 在 终端 打出容器信息，打印对齐的表格
-		w := tabwriter.NewWriter(os.Stdout, 18, 1, 3, ' ', 0)
-		fmt.Fprint(w, "IMAGE NAME\tTAG\tIMAGE ID\tSIZE\n")
+		w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+		fmt.Fprint(w, "IMAGE NAME\tTAG\tIMAGE ID\tSIZE\tCREATE TIME\n")
 
 		for imageName, imageTagMap := range imageConfig {
 			for imageTag, imageLower := range imageTagMap {
 				imageLowers := strings.Split(imageLower, ":")
-				fmt.Fprintf( w, "%s\t%s\t%s\t%s\n",
+				fmt.Fprintf( w, "%s\t%s\t%s\t%s\t%s\n",
 					imageName,
 					imageTag,
 					imageLowers[0],
 					getImageSize(imageLowers),
+					getCreateTime(imageLowers[0]),
 				)
 			}
 		}
@@ -96,15 +99,32 @@ func getImageSize(imageLowers []string) string {
 	for _, imageID := range imageLowers {
 		
 		imagePath := path.Join(container.ImageDir, imageID)
-		
-		// 遍历目录获取大小
-		// Walk 自动遍历所有目录 子目录
-		filepath.Walk(imagePath, func(_ string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
-				imageSizeByte += info.Size()
+
+		if exist, _ := container.PathExists(imagePath); exist{
+			// 遍历目录获取大小
+			// Walk 自动遍历所有目录 子目录
+			filepath.Walk(imagePath, func(_ string, info os.FileInfo, err error) error {
+				if !info.IsDir() {
+					imageSizeByte += info.Size()
+				}
+				return err
+			})		
+		} else {
+
+			// 镜像还未被使用的情况
+			imageTarPath := strings.Join([]string{imagePath, ".tar"},"")
+
+			// 获取 log 文件信息
+			fileInfo, err := os.Stat(imageTarPath)
+
+			if err != nil {
+				log.Errorf("Get %v info err : %v", imageTarPath, err) 
 			}
-			return err
-		})		
+
+			imageSizeByte += fileInfo.Size()
+		}
+		
+
 	}
 
 	switch {
@@ -115,4 +135,27 @@ func getImageSize(imageLowers []string) string {
 	}
 	
 	return ""
+}
+
+// getCreateTime 获取文件创建时间
+func getCreateTime(imageID string) string {
+
+	imagePath := path.Join(container.ImageDir, imageID)
+
+	if exist, _ := container.PathExists(imagePath); !exist{
+		// 存在 image 未使用
+		imagePath = strings.Join([]string{imagePath, ".tar"},"")
+
+	}
+
+	fileInfo, err := os.Stat(imagePath)
+	
+	if err != nil {
+		log.Errorf("Get %v info err : %v", imagePath, err) 
+	}
+
+	creatUnixTime := fileInfo.Sys().(*syscall.Stat_t).Ctim
+
+	return time.Unix(creatUnixTime.Sec, creatUnixTime.Nsec).Format("2006-01-02 15:04:05")
+
 }
