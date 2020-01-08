@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewParentProcess 创建 runC 的守护进程
+// NewParentProcess 创建 container 的启动进程
 func NewParentProcess(tty bool, containerName, containerID, imageName string, envSlice []string) (*exec.Cmd, *os.File, *DriverInfo) {
 
 	/*
@@ -95,8 +95,9 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 			return nil, nil, nil
 		}
 		
-		// 将标准输出 重定向到 log 文件中
+		// 将标准输出 错误 重定向到 log 文件中
 		cmd.Stdout = logFileFd
+		cmd.Stderr = logFileFd
 	}
 
 	// 传入管道问价读端fld
@@ -122,9 +123,9 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 	}
 
 	// 设置进程运行目录
-	cmd.Dir = path.Join(MountDir, containerID, "merged")
+	cmd.Dir = GetMountPathFuncMap[driverInfo.Driver](driverInfo.Data)
 
-	log.Debugf("Set qsrdocker : %v run dir : %v", containerID, path.Join(MountDir, containerID, "merged"))
+	log.Debugf("Set qsrdocker : %v run dir : %v", containerID, GetMountPathFuncMap[driverInfo.Driver](driverInfo.Data))
 
 	return cmd, writeCmdPipe, driverInfo // 返回给 Run 写端fd，用于接收用户参数
 }

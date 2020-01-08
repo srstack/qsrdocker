@@ -112,7 +112,7 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 	containerInfo.Mount = mountInfo
 
 	// 创建 cgroup_manager
-	cgroupManager := cgroups.NewCgroupManager(containerID,resConfig)
+	cgroupManager := cgroups.NewCgroupManager(containerID, resConfig)
 	// defer cgroupManager.Destroy()
 
 	// 初始化 /sys/fs/cgroup/[subsystem]/qsrdocker
@@ -129,7 +129,7 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 	// 将 cgroup 信息 存入 containerinfo
 	containerInfo.Cgroup = cgroupManager
 		
-	// 将用户命令发送给守护进程 Parent
+	// 将用户命令发送给 init container 进程
 	sendInitCommand(cmdList, writeCmdPipe)
 
 	// 完成 ContainerName: ContainerID 的映射关系

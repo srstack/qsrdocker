@@ -303,7 +303,8 @@ var stopCmd = cli.Command{
 // removeCmd 删除 Dead / Stop 的容器  -f 强制停止
 var removeCmd = cli.Command{
 	Name:  "rm",
-	Usage: "remove unused containers",
+	Usage: "Remove unused one or more containers",
+	ArgsUsage: "[containerName...]",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:    "f", // 强制删除容器
@@ -323,8 +324,28 @@ var removeCmd = cli.Command{
 		Force := context.Bool("f")
 		volume := context.Bool("v")
 
-		containerName := context.Args().Get(0)
-		removeContainer(containerName, Force, volume)
+		for _, containerName:= range context.Args() {
+			// 多个容器
+			removeContainer(containerName, Force, volume)
+		}
+		return nil
+	},
+}
+
+// startCmd 启动
+var startCmd = cli.Command{
+	Name:  "start",
+	Usage: "Start one or more stopped containers",
+	ArgsUsage: "[containerName...]",
+	Action: func(context *cli.Context) error {
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Missing container name")
+		}
+
+		for _, containerName:= range context.Args() {
+			// 多个容器
+			startContainer(containerName)
+		}
 		return nil
 	},
 }

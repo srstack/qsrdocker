@@ -21,6 +21,18 @@ var (
 		map[string]func(containerID, imageLower string) ( map[string]string, error) {
 			"overlay2": CreateMountPointWithOverlay2,
 		}
+
+	// MountPointCheckFuncMap 根据driver判断挂载状态
+	MountPointCheckFuncMap map[string]func(driverData map[string]string) (bool, error) = 
+	map[string]func(driverData map[string]string) (bool, error) {
+			"overlay2": MountPointCheckWithOverlay2,
+		}
+	
+	// GetMountPathFuncMap 根据driver 获取容器挂载点路径
+	GetMountPathFuncMap map[string]func(driverData map[string]string) string  = 
+	map[string]func(driverData map[string]string) string {
+			"overlay2": GetMountPathWithOverlay2,
+		}
 )
 
 // NewWorkSpace 创建容器文件系统
@@ -611,6 +623,63 @@ func CheckPath(path string, isFile bool) {
 	}
 	log.Debugf("Ptah %v is exists", path)
 }
+
+// GetMountPathWithOverlay2 获取 容器挂载点路径
+func GetMountPathWithOverlay2 (driverData map[string]string) string {
+	return driverData["MergedDir"]
+}
+	
+// MountPointCheckWithOverlay2 判断容器挂载目录是否正常
+func MountPointCheckWithOverlay2(driverData map[string]string) (bool, error) {
+	// 获取挂载点路径
+	mountPath := GetMountPathWithOverlay2(driverData)
+
+	if exist, err := PathExists(mountPath); !exist || err != nil {
+		return false, err
+	}
+
+	mountPathFs := GetMountFs(mountPath)
+
+	// 若 ufs 挂载失效，可强制要求重新挂载
+	if mountPathFs == "overlay" {
+		return true, nil
+	}
+	
+	return false, fmt.Errorf("Get mount info fail")
+}
+
+
+// GetMountFs 获取挂载点文件系统
+func GetMountFs(path string) string {
+	if _, err := os.Stat("/proc/mounts"); os.IsNotExist(err) {
+		// 无法获取 /proc/mounts信息
+		log.Error("Can't get mount info in /proc/mounts")
+		return ""
+	} 
+
+	f, err := os.Open("/proc/mounts")
+
+	// 打开文件失败
+	if err != nil {
+		log.Errorf("err : %v", err)
+		return ""
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		txt := scanner.Text()
+		fields := strings.Split(txt, " ") // 以:切片
+		fields = RemoveNullSliceString(fields)
+		// overlay /var/qsrdocker/overlay2/e5d64ff61391/merged overlay
+		if len(fields) > 3 && fields[1] == path {
+			return fields[2]
+		}
+	}
+
+	return ""
+}
+
 
 // IsEmptyDir ： 判断是否为 空 目录
 func IsEmptyDir(path string) (bool) {

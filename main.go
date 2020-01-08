@@ -7,7 +7,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-const usage = ` qsrdoceker is a simple container runtime implementation.`
+const usage = ` qsrdocker is a simple container runtime implementation.`
 
 func main() {
 	/*
@@ -30,6 +30,7 @@ func main() {
 		inspectCmd,
 		stopCmd,
 		removeCmd,
+		startCmd,
 	}
 
 	// 设定log配置项
