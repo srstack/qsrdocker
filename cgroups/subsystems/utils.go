@@ -12,6 +12,11 @@ import (
 
 // FindCgroupMountpoint 在 /proc/self/mountinfo 中找到关于 cgroup 挂载信息，获得挂载点根目录
 func FindCgroupMountpoint(subsystem string) string {
+
+	// cpuset.mems
+	// ["cpuset", "mems"]
+	subsystem = strings.Split(subsystem, ".")[0]
+
 	f, err := os.Open("/proc/self/mountinfo")
 	// mountinfo 文件包含了目标进程的相关挂载信息
 	// 如：
@@ -49,13 +54,15 @@ func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string
 	// 获得cgroup根目录路径
 	cgroupRoot := FindCgroupMountpoint(subsystem)
 	// 若cgroupRoot为空，则以 CgroupPath 为 subsystem 路径
-
+	
 	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")
 
 	log.Debugf("Get Cgroup Root PATH : %v", cgroupRoot)
 
 	// 判断subsystem路径绝对路径是否存在 或者 文件/目录不存在且开启自动创建
-	if _, err := os.Stat(path.Join(cgroupRoot, cgroupPath)); err == nil || (autoCreate && os.IsNotExist(err)) {
+	_, err := os.Stat(path.Join(cgroupRoot, cgroupPath))
+	
+	if err == nil || (autoCreate && os.IsNotExist(err)) {
 		// 创建目标目录
 		if os.IsNotExist(err) {
 			if err := os.Mkdir(path.Join(cgroupRoot, cgroupPath), 0755); err == nil {
@@ -70,8 +77,8 @@ func GetCgroupPath(subsystem string, cgroupPath string, autoCreate bool) (string
 		log.Debugf("Subsystem %v path : %v", subsystem, absCgroupPath)
 
 		return absCgroupPath, nil
-	} else {
-		// 无法获取目标目录
-		return "", fmt.Errorf("Cgroup path error %v", err)
 	}
+	// 无法获取目标目录
+	return "", fmt.Errorf("Cgroup path error %v", err)
+
 }
