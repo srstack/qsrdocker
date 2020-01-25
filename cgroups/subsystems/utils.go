@@ -13,10 +13,6 @@ import (
 // FindCgroupMountpoint 在 /proc/self/mountinfo 中找到关于 cgroup 挂载信息，获得挂载点根目录
 func FindCgroupMountpoint(subsystem string) string {
 
-	// cpuset.mems
-	// ["cpuset", "mems"]
-	subsystem = strings.Split(subsystem, ".")[0]
-
 	f, err := os.Open("/proc/self/mountinfo")
 	// mountinfo 文件包含了目标进程的相关挂载信息
 	// 如：

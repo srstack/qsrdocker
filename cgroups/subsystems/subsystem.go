@@ -12,112 +12,12 @@ import (
 	//"github.com/srstack/numaer"
 )
 
-// SubsystemType 是所有cgroup结构体的元类（组合）,包含公用函数函数
-type SubsystemType struct {
-}
-
-// CPUSetSubSystem 结构体 继承 SubsystemType
-type CPUSetSubSystem struct {
-	SubsystemType
-}
-
-// CPUShareSubSystem 结构体 继承 SubsystemType
-type CPUShareSubSystem struct {
-	SubsystemType
-}
-
-// MemorySubSystem 结构体 继承 SubsystemType
-type MemorySubSystem struct {
-	SubsystemType
-}
-
-// CPUMemSubSystem 结构体
-type CPUMemSubSystem struct {
-	SubsystemType
-}
-
-// Name 返回相对应的目标 subsystem 类型， 优先调用当前对象的方法（子类重写父类方法）
-func (s *SubsystemType) Name() string {
-	return "" // 无效
-}
-
-// Name CPUMemSubSystem 返回 cpuset
-func (s *CPUMemSubSystem) Name() string {
-	return "cpumem"
-}
-
-// Name CPUSetSubSystem 返回 cpuset
-func (s *CPUSetSubSystem) Name() string {
-	return "cpuset"
-}
-
-// Name CPUsubSystem 返回 cpu
-func (s *CPUShareSubSystem) Name() string {
-	return "cpushare"
-}
-
-// Name MemorySubSystem 返回 memory
-func (s *MemorySubSystem) Name() string {
-	return "memory"
-}
-
-// GetCgroupConf 获取变量类型
-func (s *SubsystemType) GetCgroupConf(resConfig *ResourceConfig, subsystemName string) string {
-	var conf string
-	switch subsystemName {
-	case "memory":
-		conf = resConfig.MemoryLimit
-	case "cpuset":
-		conf = resConfig.CPUSet
-	case "cpushare":
-		conf = resConfig.CPUShare
-	case "cpumem":
-		conf = resConfig.CPUMem
-	}
-	return conf
-}
-
-// SetResourceConfig 设置cgroup 数据 
-func (res *ResourceConfig) SetResourceConfig(subSystemName, value string) error {
-	switch subSystemName {
-	case "memory":
-		res.MemoryLimit = value
-	case "cpuset":
-		res.CPUSet = value
-	case "cpushare":
-		res.CPUShare = value
-	case "cpumem":
-		res.CPUMem = value
-	default:
-		return fmt.Errorf("Get %v res fial", subSystemName)
-	}
-
-	return nil
-}
-
-
-// GetCgroupFile 获取cgroup修改文件名
-func (s *SubsystemType) GetCgroupFile(subsystemName string) string {
-	var fileName string
-	switch subsystemName {
-	case "memory":
-		fileName = "memory.limit_in_bytes"
-	case "cpuset":
-		fileName = "cpuset.cpus"
-	case "cpushare":
-		fileName = "cpu.shares"
-	case "cpumem":
-		fileName = "cpuset.mems"
-	}
-	return fileName
-}
-
 // Init 初始化 cgroup /sys/fs/[subsystem]/qsrdocker
-func (s *SubsystemType) Init(subsystemName string) error {
+func Init(subsystem, subsystemFile string) error {
 
 	
 	// cgroupRoot 初始化根目录
-	cgroupRoot := FindCgroupMountpoint(s.GetCgroupFile(subsystemName))
+	cgroupRoot := FindCgroupMountpoint(subsystem)
 	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")
 
 	// 创建 subsystem
@@ -133,12 +33,12 @@ func (s *SubsystemType) Init(subsystemName string) error {
 	} else {
 		
 		// 父节点设置
-		ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), s.GetCgroupFile(subsystemName)))
+		ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
 		if err != nil {
-			log.Errorf("Init %s fail %v, Can't Get parent info", subsystemName, err)
+			log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
 		}
 
-		Conf := strings.ReplaceAll(strings.ReplaceAll(string(ConfByte)," ", ""),"\n", "")
+		Conf := strings.ReplaceAll(string(ConfByte)," ", "")
 
 		// 父节点无配置
 		if Conf == "" {
@@ -146,13 +46,13 @@ func (s *SubsystemType) Init(subsystemName string) error {
 		}
 
 		// 写入初始化状态  /cupset.cpus
-		if err := ioutil.WriteFile(path.Join(cgroupRoot, s.GetCgroupFile(subsystemName)), []byte(Conf), 0644); err != nil {
+		if err := ioutil.WriteFile(path.Join(cgroupRoot, subsystemFile), []byte(Conf), 0644); err != nil {
 			// 写入文件失败则返回 error set cgroup memory fail
-			return fmt.Errorf("Init cpuset.cpus %s fail %v", subsystemName, err)
+			return fmt.Errorf("Init %s-%s fail %v", subsystem, subsystemFile, err)
 		}
 
 		// 初始化 cpus 成功
-		log.Debugf("Init %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), Conf)
+		log.Debugf("Init %v-%s in %v: %v", subsystem, subsystem, subsystemFile, Conf)
 		
 		return nil
 	}
@@ -161,40 +61,35 @@ func (s *SubsystemType) Init(subsystemName string) error {
 }
 
 // Set 设置CgroupPath对应的 cgroup 的内存资源限制
-func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *ResourceConfig) error {
+func Set(cgroupPath, subsystem, subsystemFile, cgroupConf string) error {
 
 	// GetCgroupPath 是获取当前VFS中 cgroup 的路径
-	subsysCgroupPath, err := GetCgroupPath(s.GetCgroupFile(subsystemName), cgroupPath, true)
+	subsysCgroupPath, err := GetCgroupPath(subsystem, cgroupPath, true)
 	if err == nil {
-		cgroupConf := s.GetCgroupConf(resConfig, subsystemName)
 		if strings.Replace(cgroupConf, " ", "", -1) == "" {
 			
 			// 父节点设置
-			cgroupConfByte, err := ioutil.ReadFile(path.Join(path.Dir(subsysCgroupPath), s.GetCgroupFile(subsystemName)))
+			cgroupConfByte, err := ioutil.ReadFile(path.Join(path.Dir(subsysCgroupPath), subsystemFile))
 			if err != nil {
-				log.Errorf("Set  %s fail %v, Can't Get parent info", subsystemName, err)
+				log.Errorf("Set  %s-%s fail %v, Can't Get parent info", subsystem, subsystemFile, err)
 			}
 			
-			cgroupConf = strings.ReplaceAll(strings.ReplaceAll(string(cgroupConfByte)," ", ""),"\n", "")
+			cgroupConf = strings.ReplaceAll(string(cgroupConfByte)," ", "")
 
 			// 若父节点无配置，直接返回 
 			if cgroupConf == "" {
 				return nil
 			}
 
-			log.Debugf("Get parent subsystem info %v : %v", path.Join(path.Dir(subsysCgroupPath), s.GetCgroupFile(subsystemName)), cgroupConf)
-
-			// 设置资源限制
-			resConfig.SetResourceConfig(subsystemName, cgroupConf)
-		
+			log.Debugf("Get parent subsystem info %v : %v", path.Join(path.Dir(subsysCgroupPath), subsystemFile), cgroupConf)
 		}
 		// 设置 cgroup 的限制，将限制写入对应目录的 xxxxx 中
-		if err := ioutil.WriteFile(path.Join(subsysCgroupPath, s.GetCgroupFile(subsystemName)), []byte(cgroupConf), 0644); err != nil {
+		if err := ioutil.WriteFile(path.Join(subsysCgroupPath, subsystemFile), []byte(cgroupConf), 0644); err != nil {
 			// 写入文件失败则返回 error set cgroup memory fail
-			return fmt.Errorf("cgroup %s fail %v", subsystemName, err)
+			return fmt.Errorf("cgroup %s-%s fail %v", subsystem, subsystemFile, err)
 		}
 		
-		log.Debugf("Set cgroup %v in %v: %v", subsystemName, s.GetCgroupFile(subsystemName), cgroupConf)	
+		log.Debugf("Set cgroup %v-%s in %v: %v", subsystem, subsystemFile, subsystemFile, cgroupConf)	
 		// resConfig.xxxx == "" 不设置限制，则直接返回空
 		return nil
 	}
@@ -204,29 +99,29 @@ func (s *SubsystemType) Set(cgroupPath, subsystemName string, resConfig *Resourc
 }
 
 // Apply 将进程加入到cgroupPath对应的cgroup中
-func (s *SubsystemType) Apply(cgroupPath, subsystemName string, pid int) error {
+func Apply(cgroupPath, subsystem, subsystemFile string, pid int) error {
 	// GetCgroupPath 获取 cgroup 在虚拟文件系统的虚拟路径
-	if subsysCgroupPath, err := GetCgroupPath(s.GetCgroupFile(subsystemName), cgroupPath, false); err == nil {
+	subsysCgroupPath, err := GetCgroupPath(subsystem, cgroupPath, false)
+	if err == nil {
 		if err := ioutil.WriteFile(path.Join(subsysCgroupPath, "tasks"), []byte(strconv.Itoa(pid)), 0644); err != nil {
 			// 将进程PID加入到对应目录下的 task 文件中
 			// strconv.Itoa(pid) int to string
 			return fmt.Errorf("set cgroup proc fail %v", err)
 		} 
-		log.Debugf("Apply cgroup %v successful. curr pid: %d", subsystemName, pid)
+		log.Debugf("Apply cgroup %v-%s successful. curr pid: %d", subsystem, subsystemFile, pid)
 		return nil
-	} else {
-		// 无法获取相对应 cgroup 路径
-		return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
-	}
+	} 
+	// 无法获取相对应 cgroup 路径
+	return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
 }
 
 // Remove 删除 cgroupPath 对应的 cgroup
-func (s *SubsystemType) Remove(cgroupPath, subsystemName string) error {
-	if subsysCgroupPath, err := GetCgroupPath(s.GetCgroupFile(subsystemName), cgroupPath, false); err == nil {
-		log.Debugf("Remove cgroup %v", subsystemName)
+func Remove(cgroupPath, subsystem, subsystemFile string) error {
+	subsysCgroupPath, err := GetCgroupPath(subsystem, cgroupPath, false)
+	if err == nil {
+		log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
 		return os.RemoveAll(subsysCgroupPath)
-	} else {
-		// 无法获取相对应 cgroup 路径
-		return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
-	}
+	} 
+	// 无法获取相对应 cgroup 路径
+	return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
 }

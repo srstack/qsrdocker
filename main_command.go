@@ -46,6 +46,10 @@ var runCmd = cli.Command{
 			Name:  "name",  // 容器名称
 			Usage: "Container name",
 		},
+		cli.StringFlag{
+			Name:  "oom_kill_disable",  // 容器名称
+			Usage: "oom_kill_disable, 1: disable 0:able (default 0)",
+		},
 		// 存在多个 -v 操作
 		cli.StringSliceFlag{
 			Name:  "v", // 数据卷
@@ -100,11 +104,18 @@ var runCmd = cli.Command{
 
 		log.Debugf("Enable detach %v", detach)
 
+		oomKillAble := context.String("oom_kill_disable")
+		if oomKillAble != "0" {
+			// 可能存在其他数字(用户乱写....)
+			oomKillAble = "1"
+		}
+
 		resConfig := &subsystems.ResourceConfig{
-			MemoryLimit: context.String("m"),
-			CPUSet:      context.String("cpuset"),
-			CPUShare:    context.String("cpushare"),
-			CPUMem:    	 context.String("cpumem"),
+			MemoryLimit: 	context.String("m"),
+			CPUSet:      	context.String("cpuset"),
+			CPUShare:    	context.String("cpushare"),
+			CPUMem:    	 	context.String("cpumem"),
+			OOMKillDisable: oomKillAble,
 		}
 
 		QsrdockerRun(tty, cmdList, volumes, envSlice, resConfig, imageName, containerName)

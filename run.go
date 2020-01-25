@@ -142,13 +142,15 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 		containerProcess.Wait()
 		// 进程退出 exit
 
+
+		// 删除容器信息
+		RemoveContainerNameInfo(containerID)
+		
 		// 删除工作目录
 		//if err := container.DeleteWorkSpace(containerID, volumes); err != nil {
 		if err := container.DeleteWorkSpace(containerID); err != nil {
 			log.Errorf("Error: %v", err)
 		}
-
-		RemoveContainerNameInfo(containerID)
 		// 删除 cgroup
 		cgroupManager.Destroy()
 	} else {
