@@ -119,8 +119,17 @@ func Apply(cgroupPath, subsystem, subsystemFile string, pid int) error {
 func Remove(cgroupPath, subsystem, subsystemFile string) error {
 	subsysCgroupPath, err := GetCgroupPath(subsystem, cgroupPath, false)
 	if err == nil {
+		// 已经被删除了
+		if exist, _ :=  PathExists(subsysCgroupPath); !exist {
+			log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
+			return nil
+		}
+		if err = os.RemoveAll(subsysCgroupPath); err != nil {
+			return err
+		}
+		
 		log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
-		return os.RemoveAll(subsysCgroupPath)
+		return nil 
 	} 
 	// 无法获取相对应 cgroup 路径
 	return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
