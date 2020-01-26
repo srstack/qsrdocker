@@ -133,9 +133,9 @@ func removeContainer(containerName string, Force, volume bool) {
 
 		for _, mountInfo := range volumeMountInfoSlice {
 			if err := os.RemoveAll(mountInfo.Source); err != nil {
-				log.Errorf("Remove Mount Bind Volume %v Error: %v", mountInfo.Source, err)
+				log.Errorf("Remove Mount Bind Volume %s Error: %v", mountInfo.Source, err)
 			} else {
-				log.Debug("Remove Mount Bind Volume %v success", mountInfo.Source)
+				log.Debug("Remove Mount Bind Volume %s success", mountInfo.Source)
 			}
 		}
 	}

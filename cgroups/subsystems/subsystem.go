@@ -15,12 +15,6 @@ import (
 // Init 初始化 cgroup /sys/fs/[subsystem]/qsrdocker
 func Init(subsystem, subsystemFile string) error {
 
-	// 只需要初始化 cupset
-	// 其他subsystem会自动设置初始化
-	if subsystem != "cpuset" {
-		return nil
-	}
-	
 	// cgroupRoot 初始化根目录
 	cgroupRoot := FindCgroupMountpoint(subsystem)
 	cgroupRoot = path.Join(cgroupRoot, "qsrdocker")
@@ -35,33 +29,36 @@ func Init(subsystem, subsystemFile string) error {
 		}
 
 		log.Debugf("Create subsystem Root success : %v", cgroupRoot)
-	} else {
-		
-		// 父节点设置
-		ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
-		if err != nil {
-			log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
-		}
+	}
 
-		Conf := strings.ReplaceAll(string(ConfByte)," ", "")
-
-		// 父节点无配置
-		if Conf == "" {
-			return nil 
-		}
-
-		// 写入初始化状态  /cupset.cpus
-		if err := ioutil.WriteFile(path.Join(cgroupRoot, subsystemFile), []byte(Conf), 0644); err != nil {
-			// 写入文件失败则返回 error set cgroup memory fail
-			return fmt.Errorf("Init %s-%s fail %v", subsystem, subsystemFile, err)
-		}
-
-		// 初始化 cpus 成功
-		log.Debugf("Init %v-%s in %v: %v", subsystem, subsystem, subsystemFile, Conf)
-		
+	// 只需要初始化 cupset
+	// 其他subsystem会自动设置初始化
+	if subsystem != "cpuset" {
 		return nil
 	}
 
+	// 父节点设置
+	ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
+	if err != nil {
+		log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
+	}
+
+	Conf := strings.ReplaceAll(string(ConfByte)," ", "")
+
+	// 父节点无配置
+	if Conf == "" {
+		return nil 
+	}
+
+	// 写入初始化状态  /cupset.cpus
+	if err := ioutil.WriteFile(path.Join(cgroupRoot, subsystemFile), []byte(Conf), 0644); err != nil {
+		// 写入文件失败则返回 error set cgroup memory fail
+		return fmt.Errorf("Init %s-%s fail %v", subsystem, subsystemFile, err)
+	}
+
+	// 初始化 cpus 成功
+	log.Debugf("Init %v-%s in %v: %v", subsystem, subsystem, subsystemFile, Conf)
+	
 	return nil
 }
 
