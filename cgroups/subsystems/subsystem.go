@@ -15,6 +15,11 @@ import (
 // Init 初始化 cgroup /sys/fs/[subsystem]/qsrdocker
 func Init(subsystem, subsystemFile string) error {
 
+	// 只需要初始化 cupset
+	// 其他subsystem会自动设置初始化
+	if subsystem != "cpuset" {
+		return nil
+	}
 	
 	// cgroupRoot 初始化根目录
 	cgroupRoot := FindCgroupMountpoint(subsystem)
@@ -118,19 +123,15 @@ func Apply(cgroupPath, subsystem, subsystemFile string, pid int) error {
 // Remove 删除 cgroupPath 对应的 cgroup
 func Remove(cgroupPath, subsystem, subsystemFile string) error {
 	subsysCgroupPath, err := GetCgroupPath(subsystem, cgroupPath, false)
-	if err == nil {
-		// 已经被删除了
-		if exist, _ :=  PathExists(subsysCgroupPath); !exist {
-			log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
-			return nil
-		}
-		if err = os.RemoveAll(subsysCgroupPath); err != nil {
-			return err
-		}
-		
-		log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
-		return nil 
-	} 
-	// 无法获取相对应 cgroup 路径
-	return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
+	// 存在 err ，则已经被删除了
+	if err != nil {
+		return nil
+	}
+	
+	if err = os.RemoveAll(subsysCgroupPath); err != nil {
+		return err
+	}
+	
+	log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
+	return nil
 }
