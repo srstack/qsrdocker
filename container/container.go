@@ -2,8 +2,10 @@ package container
 
 import (
 	"path"
+	"net"
 	"qsrdocker/cgroups"
-	"qsrdocker/"
+
+	"github.com/vishvananda/netlink"
 )
 
 // 路径相关信息
@@ -22,6 +24,8 @@ var (
 	NetWorkDir				string = path.Join(RootDir, "network")
 	// NetFileDir
 	NetFileDir				string = path.Join(NetWorkDir, "netfile")
+	// IPFileDir
+	NetIPadminDir			string = path.Join(NetWorkDir, "ipam")
 )
 
 // 文件相关信息
@@ -33,6 +37,7 @@ var (
 	// 默认引擎为 overlay2
 	Driver				string = "overlay2"
 	MountType			string = "bind" 
+	IPamConfigFile		string = "subnet.json"
 )
 
 // ContainerInfo 容器基本信息描述
@@ -50,7 +55,7 @@ type ContainerInfo struct {
 	Path		string					`json:"Path"`			// cmd 运行absPath
 	Args		[]string				`json:"Args"`			// cmdlsit
 	Env   		[]string				`json:"Env"`			// 运行的环境变量
-	NetWorks	*network.Endpoint		`json:"NetWorkConfig"` // 网络配置
+	NetWorks	*Endpoint		`json:"NetWorkConfig"` // 网络配置
 }
 
 // DriverInfo 镜像挂载信息
@@ -83,4 +88,27 @@ type ImageMateDataInfo struct {
 	Path		string					`json:"Path"`			// cmd 运行absPath
 	Args		[]string				`json:"Args"`			// cmdlsit
 	Env   		[]string				`json:"Env"`			// 运行的环境变量
+}
+
+// Network 网络信息，包含了相关的 IP 信息，网络 Driver 信息，如 Host None Container Bridge
+type Network struct {
+	Name string			`json:"Name"`
+	IP *net.IPNet		`json:"IPNet"`
+	Driver string		`json:"NetDriver"`
+}
+
+// Endpoint 网络端点 用于连接容器和网络的，
+type Endpoint struct {
+	ID			string 					`json:"EndPointID"`
+	Device 		netlink.Veth 			`json:"Dev"`
+	IPAddress 	net.IP 					`json:"IP"`
+	MacAddress 	net.HardwareAddr 		`json:"MACAddress"`
+	Network    	*Network				`json:"NetWork"`
+	Ports		map[string][]*Port 		`json:"Ports"`
+}
+
+// Port 端口映射信息
+type Port struct {
+	HostIP string		`json:"HostIP"`
+	HostPort string		`json:"HostPort"`
 }

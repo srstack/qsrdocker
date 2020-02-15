@@ -60,7 +60,7 @@ func CreateNetwork(driver, subnet, networkName string) error {
 		return err
 	}
 
-	return nw.dump()
+	return nw.Dump()
 }
 
 // DeleteNetwork 删除网络
@@ -69,7 +69,7 @@ func DeleteNetwork(networkName string) error {
 		Name: networkName,
 	}
 
-	if err := nw.load(); err != nil {
+	if err := nw.Load(); err != nil {
 		return fmt.Errorf("Get NetWork %v Info err: %v", networkName, err)
 	}
 
@@ -83,7 +83,7 @@ func DeleteNetwork(networkName string) error {
 	}
 
 	// 删除配置文件
-	return nw.remove()
+	return nw.Remove()
 }
 
 // Connect 连接容器和已创建网络
@@ -93,7 +93,7 @@ func Connect(networkName string, portSlice []string, containerInfo *container.Co
 		Name: networkName,
 	}
 
-	if err := nw.load(); err != nil {
+	if err := nw.Load(); err != nil {
 		return fmt.Errorf("Get NetWork %v Info err: %v", networkName, err)
 	}
 
@@ -315,7 +315,7 @@ func ListNetWork() {
 			Name: nwName,
 		}
 
-		if err := nw.load(); err != nil {
+		if err := nw.Load(); err != nil {
 			log.Errorf("Load network Config %v error : %v", nwName, err)
 		}
 
