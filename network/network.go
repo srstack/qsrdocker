@@ -1,68 +1,42 @@
 package network
 
 import (
-	"encoding/json"
+	"fmt"
+	"net"
+	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
-	"os/exec"
-	"runtime"
-	"os"
-	"fmt"
-	"text/tabwriter"
 	"qsrdocker/container"
-	"net"
+	"runtime"
+	"strings"
+	"text/tabwriter"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	log "github.com/sirupsen/logrus"
 )
-
 
 var (
 	// NetworkDriverMap 网络驱动
-	NetworkDriverMap = map[string]NetworkDriver {
-		"none" : nil,
+	NetworkDriverMap = map[string]NetworkDriver{
+		"none": nil,
 	}
 )
-
-
-// Network 网络信息，包含了相关的 IP 信息，网络 Driver 信息，如 Host None Container Bridge
-type Network struct {
-	Name string			`json:"Name"`
-	IP *net.IPNet		`json:"IPNet"`
-	Driver string		`json:"NetDriver"`
-}
-
-// Endpoint 网络端点 用于连接容器和网络的，
-type Endpoint struct {
-	ID			string 					`json:"EndPointID"`
-	Device 		netlink.Veth 			`json:"Dev"`
-	IPAddress 	net.IP 					`json:"IP"`
-	MacAddress 	net.HardwareAddr 		`json:"MACAddress"`
-	Network    	*Network				`json:"NetWork"`
-	Ports		map[string][]*Port 		`json:"Ports"`
-}
-
-// Port 端口映射信息
-type Port struct {
-	HostIP string		`json:"HostIP"`
-	HostPort string		`json:"HostPort"`
-}
 
 // NetworkDriver 网络 driver 接口  Host None Container Bridge
 type NetworkDriver interface {
 	// 驱动名称
 	Name() string
 	// 创建目标驱动的网络
-	Create(subnet string, name string) (*Network, error)
+	Create(subnet string, name string) (*container.Network, error)
 	// 删除目标驱动的网络
-	Delete(network *Network) error
+	Delete(network *container.Network) error
 	// 连接网络端点EndPoint到网络
-	Connect(network *Network, endpoint *Endpoint) error
+	Connect(network *container.Network, endpoint *container.Endpoint) error
 	// 断开网络端点EndPoint到网络
-	Disconnect(network *Network, endpoint *Endpoint) error
+	Disconnect(network *container.Network, endpoint *container.Endpoint) error
 }
 
 // CreateNetwork 创建网络
@@ -72,12 +46,12 @@ func CreateNetwork(driver, subnet, networkName string) error {
 	_, cidr, _ := net.ParseCIDR(subnet)
 
 	// 从 IP manager 获取 网关IP
-	// 目标网段的第一个 IP 
+	// 目标网段的第一个 IP
 	gwIP, err := ipAllocator.Allocate(cidr)
 	if err != nil {
 		return err
 	}
-	
+
 	cidr.IP = gwIP
 
 	// 调用目标网络驱动的 create 方法创建网络
@@ -89,10 +63,9 @@ func CreateNetwork(driver, subnet, networkName string) error {
 	return nw.dump()
 }
 
-
 // DeleteNetwork 删除网络
 func DeleteNetwork(networkName string) error {
-	nw := &Network{ 
+	nw := &container.Network{
 		Name: networkName,
 	}
 
@@ -105,7 +78,7 @@ func DeleteNetwork(networkName string) error {
 		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkName, nw.IP.IP, err)
 	}
 
-	if err :=  NetworkDriverMap[strings.ToLower(nw.Driver)].Delete(nw); err != nil {
+	if err := NetworkDriverMap[strings.ToLower(nw.Driver)].Delete(nw); err != nil {
 		return fmt.Errorf("Remove Network %v Driver error: %v", networkName, err)
 	}
 
@@ -113,97 +86,10 @@ func DeleteNetwork(networkName string) error {
 	return nw.remove()
 }
 
-// dump 将网络信息的配置持久化
-func (nw *Network) dump() error {
-	
-	// 判断
-	if exist, err := container.PathExists(container.NetFileDir); err == nil {
-		if !exist {
-			os.MkdirAll(container.NetFileDir, 0644)
-		} 
-	} else {
-		return nil
-	}
-	
-	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.Name].json
-	nwFilePath := path.Join(container.NetFileDir, strings.Join([]string{nw.Name,".json"},""))
-	// os.O_CREATE 不存在则自动创建
-	nwFile, err := os.OpenFile(nwFilePath, os.O_TRUNC | os.O_WRONLY | os.O_CREATE, 0644)
-	if err != nil {
-		log.Errorf("Open network %v file in %v error：", nw.Name, container.NetFileDir, err)
-		return err
-	}
-	defer nwFile.Close()
-
-	// json 格式
-	nwInfoByte, err := json.MarshalIndent(nw, " ", "    ")
-	
-	if err != nil {
-		log.Errorf("Marshal network info error：", err)
-		return err
-	}
-
-	// 持久化数据
-	_, err = nwFile.Write(nwInfoByte)
-	if err != nil {
-		log.Errorf("Write network info in  error：", container.NetFileDir, err)
-		return err
-	}
-	return nil
-}
-
-// remove 删除网络配置
-func (nw *Network) remove() error {
-	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.Name].json
-	nwFilePath := path.Join(container.NetFileDir, strings.Join([]string{nw.Name,".json"},""))
-
-	exist, err := container.PathExists(nwFilePath)
-	if err == nil {
-		// 如目标文件不存在，直接返回 nil
-		if exist {
-			// 存在则删除目标文件
-			return os.Remove(nwFilePath)
-		}
-		
-		return nil
-	}
-	
-	return err
-}
-
-// load 获取网络配置
-func (nw *Network) load()  error {
-
-	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.Name].json
-	nwFilePath := path.Join(container.NetFileDir, strings.Join([]string{nw.Name,".json"},""))
-
-	nwConfigFile, err := os.Open(nwFilePath)
-	defer nwConfigFile.Close()
-	
-	if err != nil {
-		return err
-	}
-	
-	// 
-	nwInfoByte := make([]byte, 2000)
-	n, err := nwConfigFile.Read(nwInfoByte)
-	if err != nil {
-		return err
-	}
-
-	// 反序列化
-	err = json.Unmarshal(nwInfoByte[:n], nw)
-	if err != nil {
-		log.Errorf("Error load network %v info", nw.Name, err)
-		return err
-	}
-	return nil
-}
-
 // Connect 连接容器和已创建网络
 func Connect(networkName string, portSlice []string, containerInfo *container.ContainerInfo) error {
-	
-	nw := &Network{ 
+
+	nw := &container.Network{
 		Name: networkName,
 	}
 
@@ -220,13 +106,13 @@ func Connect(networkName string, portSlice []string, containerInfo *container.Co
 	// 解析 Ports
 	// hostPort:containerPort、ip:hostPort:containerPort
 	// [80:80, 127.1.2.3:3306:3306]
-	ports := map[string][]*Port{}
-	
+	ports := map[string][]*container.Port{}
+
 	for _, portPair := range portSlice {
 		// 按照 ： 拆分
-		portPairSlice := strings.Split(portPair,":")
+		portPairSlice := strings.Split(portPair, ":")
 		portPairSlice = container.RemoveNullSliceString(portPairSlice)
-		port := &Port{}
+		port := &container.Port{}
 
 		// 根据长度判断 host ip
 		if len(portPairSlice) == 2 {
@@ -249,11 +135,11 @@ func Connect(networkName string, portSlice []string, containerInfo *container.Co
 	}
 
 	// 创建网络端点
-	ep := &Endpoint{
-		ID: fmt.Sprintf("%s-%s", containerInfo.ID, networkName),
+	ep := &container.Endpoint{
+		ID:        fmt.Sprintf("%s-%s", containerInfo.ID, networkName),
 		IPAddress: ip,
-		Network: nw,
-		Ports: ports,
+		Network:   nw,
+		Ports:     ports,
 	}
 
 	containerInfo.NetWorks = ep
@@ -262,7 +148,7 @@ func Connect(networkName string, portSlice []string, containerInfo *container.Co
 	if err = NetworkDriverMap[nw.Driver].Connect(nw, ep); err != nil {
 		return err
 	}
-	
+
 	// 到容器的namespace配置容器网络设备IP地址
 	if err = configEndpointIPAddressAndRoute(containerInfo); err != nil {
 		return err
@@ -279,7 +165,7 @@ func Disconnect(networkName string, containerInfo *container.ContainerInfo) erro
 
 // enterContainerNetNs 进入容器 NET NS
 func enterContainerNetNs(enLink *netlink.Link, containerInfo *container.ContainerInfo) func() {
-	
+
 	// 获取容器进程 PID NS 信息
 	f, err := os.OpenFile(fmt.Sprintf("/proc/%d/ns/net", containerInfo.Status.Pid), os.O_RDONLY, 0)
 	if err != nil {
@@ -294,10 +180,9 @@ func enterContainerNetNs(enLink *netlink.Link, containerInfo *container.Containe
 	// 绑定目标 M  （GMP模型）
 	runtime.LockOSThread()
 
-
 	// 修改 veth peer 另外一端移到容器的 namespace 中
 	if err = netlink.LinkSetNsFd(*enLink, int(containerNetnsFD)); err != nil {
-		log.Errorf("Set veth peer Link to container %v net ns error : %v", containerInfo.Name , err)
+		log.Errorf("Set veth peer Link to container %v net ns error : %v", containerInfo.Name, err)
 	}
 
 	// 获取 host 网络 namespace
@@ -314,7 +199,7 @@ func enterContainerNetNs(enLink *netlink.Link, containerInfo *container.Containe
 
 	// 执行完后，回到原来的 Net NS
 	// defer 也可以
-	return func () {
+	return func() {
 		netns.Set(hostNetNs)
 		hostNetNs.Close()
 		// 解除绑定
@@ -342,12 +227,12 @@ func configEndpointIPAddressAndRoute(containerInfo *container.ContainerInfo) err
 	// 获取容器网络 IP 地址
 	interfaceIP.IP = containerInfo.NetWorks.IPAddress
 
-	// 设置容器内 veth peer 的 IP 
+	// 设置容器内 veth peer 的 IP
 	if err = setInterfaceIP(containerInfo.NetWorks.Device.PeerName, interfaceIP.String()); err != nil {
 		return fmt.Errorf("%v,%s", containerInfo.NetWorks.Network, err)
 	}
 
-	// 开启容器内部的 veth peer 
+	// 开启容器内部的 veth peer
 	if err = setInterfaceUP(containerInfo.NetWorks.Device.PeerName); err != nil {
 		return err
 	}
@@ -357,14 +242,13 @@ func configEndpointIPAddressAndRoute(containerInfo *container.ContainerInfo) err
 		return err
 	}
 
-
 	// 设置容器的所有对外访问地址 都通过 gwIP
 	// route add -net 0.0.0.0/0 gw [containerInfo.NetWorks.IP.IP]
 	_, cidr, _ := net.ParseCIDR("0.0.0.0/0")
 	defaultRoute := &netlink.Route{
 		LinkIndex: vethPeerLink.Attrs().Index,
-		Gw: containerInfo.NetWorks.IP.IP,
-		Dst: cidr,
+		Gw:        containerInfo.NetWorks.IPAddress,
+		Dst:       cidr,
 	}
 
 	// route add 命令
@@ -391,14 +275,14 @@ func configPortMapping(containerInfo *container.ContainerInfo) error {
 
 		containerPort := dnatSlice[0]
 		protocol := strings.ToLower(dnatSlice[1])
-		
+
 		// 存在 1:n 端口映射
 		for _, pm := range portSlice {
 			// iptables dnat
 			iptablesCmd := fmt.Sprintf(
 				"-t nat -A PREROUTING -d %s -p %s -m %s --dport %s -j DNAT --to-destination %s:%s",
 				pm.HostIP, protocol, protocol, pm.HostPort, containerInfo.NetWorks.IPAddress.String(), containerPort)
-			
+
 			// 执行 iptables
 			cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
 			//err := cmd.Run()
@@ -409,16 +293,15 @@ func configPortMapping(containerInfo *container.ContainerInfo) error {
 			}
 		}
 
-		
 	}
 	return nil
 }
 
 // ListNetWork 显示现在存在的网络
-func ListNetWork(){
-	networks := []*Network{}
+func ListNetWork() {
+	networks := []*container.Network{}
 
-	// 获取网络配置数据 
+	// 获取网络配置数据
 	filepath.Walk(container.NetFileDir, func(nwPath string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(nwPath, "/") {
 			return nil
@@ -427,8 +310,8 @@ func ListNetWork(){
 		// nwName   nwName.json
 		_, nwName := path.Split(nwPath)
 
-		nwName = nwName[0:(len(nwName)-5)]
-		nw := &Network{
+		nwName = nwName[0:(len(nwName) - 5)]
+		nw := &container.Network{
 			Name: nwName,
 		}
 
@@ -457,7 +340,6 @@ func ListNetWork(){
 
 }
 
-
 // setInterfaceUP 启用网口
 func setInterfaceUP(interfaceName string) error {
 	iface, err := netlink.LinkByName(interfaceName)
@@ -470,7 +352,6 @@ func setInterfaceUP(interfaceName string) error {
 	}
 	return nil
 }
-
 
 // setInterfaceIP Set the IP addr of a netlink interface 设置 veth peer IP
 func setInterfaceIP(peerName string, rawIP string) error {
@@ -487,7 +368,7 @@ func setInterfaceIP(peerName string, rawIP string) error {
 		// 重试等待时间
 		time.Sleep(2 * time.Second)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("Abandoning retrieving the new bridge link from netlink, Run [ ip link ] to troubleshoot the error: %v", err)
 	}
@@ -496,12 +377,11 @@ func setInterfaceIP(peerName string, rawIP string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// 设置IP
 	addr := &netlink.Addr{IPNet: ipNet, Peer: ipNet, Label: "", Flags: 0, Scope: 0, Broadcast: nil}
 	return netlink.AddrAdd(iface, addr)
 }
-
 
 // setupIPTables 设置SNAT
 func setupIPTables(bridgeName string, subnet *net.IPNet) error {
@@ -514,4 +394,3 @@ func setupIPTables(bridgeName string, subnet *net.IPNet) error {
 	}
 	return err
 }
-

@@ -3,7 +3,6 @@ module qsrdocker
 go 1.13
 
 require (
-	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/hpcloud/tail v1.0.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/urfave/cli v1.22.2
