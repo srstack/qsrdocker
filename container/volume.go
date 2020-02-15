@@ -17,20 +17,17 @@ import (
 
 var (
 	// MountWorkSpaceFuncMap 根据driver类型选择 ufs 挂载
-	MountWorkSpaceFuncMap map[string]func(containerID, imageLower string) (map[string]string, error) = 
-		map[string]func(containerID, imageLower string) ( map[string]string, error) {
+	MountWorkSpaceFuncMap = map[string]func(containerID, imageLower string) ( map[string]string, error) {
 			"overlay2": CreateMountPointWithOverlay2,
 		}
 
 	// MountPointCheckFuncMap 根据driver判断挂载状态
-	MountPointCheckFuncMap map[string]func(driverData map[string]string) (bool, error) = 
-	map[string]func(driverData map[string]string) (bool, error) {
+	MountPointCheckFuncMap = map[string]func(driverData map[string]string) (bool, error) {
 			"overlay2": MountPointCheckWithOverlay2,
 		}
 	
 	// GetMountPathFuncMap 根据driver 获取容器挂载点路径
-	GetMountPathFuncMap map[string]func(driverData map[string]string) string  = 
-	map[string]func(driverData map[string]string) string {
+	GetMountPathFuncMap = map[string]func(driverData map[string]string) string {
 			"overlay2": GetMountPathWithOverlay2,
 		}
 )

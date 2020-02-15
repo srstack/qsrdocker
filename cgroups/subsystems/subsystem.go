@@ -37,8 +37,22 @@ func Init(subsystem, subsystemFile string) error {
 		return nil
 	}
 
+	// 判断是否初始化完成
+	InitConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
+	if err != nil {
+		log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
+	}
+
+	InitConf := strings.ReplaceAll(string(InitConfByte)," ", "")
+
+	// 已完成初始化后，直接返回
+	if InitConf != "" {
+		log.Debugf("Initialization completed")
+		return nil 
+	}
+
 	// 父节点设置
-	ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
+	ConfByte, err := ioutil.ReadFile(path.Join(cgroupRoot, subsystemFile))
 	if err != nil {
 		log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
 	}

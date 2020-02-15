@@ -3,6 +3,7 @@ package container
 import (
 	"path"
 	"qsrdocker/cgroups"
+	"qsrdocker/network"
 )
 
 // 路径相关信息
@@ -17,6 +18,10 @@ var (
 	ContainerDir			string = path.Join(RootDir, "container")
 	// ImageRuntimeDir  镜像 runtime 相关数据
 	ImageMateDateDir		string = path.Join(ImageDir, "matedata")
+	// NetworkDir 容器网络目录
+	NetWorkDir				string = path.Join(RootDir, "network")
+	// NetFileDir
+	NetFileDir				string = path.Join(NetWorkDir, "netfile")
 )
 
 // 文件相关信息
@@ -41,10 +46,11 @@ type ContainerInfo struct {
 	Mount		[]*MountInfo			`json:"Mount"`			// 数据卷数据
 	Cgroup		*cgroups.CgroupManager	`json:"Cgroup"`			// Cgroup 信息
 	TTy			bool					`json:"Tty"`			// 是否开启对接终端
-	Image		string					`json"Image"`			// Image 镜像信息
+	Image		string					`json:"Image"`			// Image 镜像信息
 	Path		string					`json:"Path"`			// cmd 运行absPath
 	Args		[]string				`json:"Args"`			// cmdlsit
 	Env   		[]string				`json:"Env"`			// 运行的环境变量
+	NetWorks	*network.Endpoint		`json:"NetWorkConfig"` // 网络配置
 }
 
 // DriverInfo 镜像挂载信息
@@ -56,12 +62,12 @@ type DriverInfo struct {
 // StatusInfo 容器状态信息
 type StatusInfo struct {
 	Pid         int 	`json:"Pid"`		//容器的init进程在宿主机上的 PID
-	Status		string `json:"Status"`
-	Running		bool   `json:"Running"`		// qsrdocker run/start
-	Paused	 	bool   `json:"Paused"`		// qsrdocker stop
-    OOMKilled	bool   `json:"OOMKilled"`	
-	Dead		bool   `json:"Dead"`		// 异常退出，不是由 stop 退出
-	StartTime	string `json:"StartTime"`
+	Status		string 	`json:"Status"`
+	Running		bool   	`json:"Running"`		// qsrdocker run/start
+	Paused	 	bool   	`json:"Paused"`		// qsrdocker stop
+    OOMKilled	bool   	`json:"OOMKilled"`	
+	Dead		bool   	`json:"Dead"`		// 异常退出，不是由 stop 退出
+	StartTime	string 	`json:"StartTime"`
 }
 
 // MountInfo 数据卷挂载信息
