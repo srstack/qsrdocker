@@ -295,7 +295,7 @@ var stopCmd = cli.Command{
 	Flags: []cli.Flag{
 		cli.IntFlag{
 			Name:  	"t", // 指定 t 
-			Value: 	10,
+			Value: 	0,
 			Usage:   `Seconds to wait for stop before killing it`,
 		},
 	},

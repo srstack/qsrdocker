@@ -74,7 +74,7 @@ func DeleteNetwork(networkName string) error {
 	}
 
 	// 回收 IP 地址
-	if err := ipAllocator.Release(nw.IP, nw.IP.IP); err != nil {
+	if err := ipAllocator.Release(nw.IP, &nw.IP.IP); err != nil {
 		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkName, nw.IP.IP, err)
 	}
 
