@@ -1,139 +1,219 @@
 package network
 
 import (
+	"encoding/json"
 	"net"
 	"os"
 	"path"
-	"strings"
-	"encoding/json"
 	"qsrdocker/container"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 )
 
+// 使用 bitmap 位图算法来标记地址分配状态 0:未分配  1:已分配
 
+// IPAM 存放 ip 地址分配信息
 type IPAM struct {
+	// 分配文件
 	SubnetAllocatorPath string
+	// 网段和位图算法的数组map  key是网段  value是分配的位图数组
 	Subnets *map[string]string
 }
 
+// 初始化 IPAM 使用 /var/qsrdocker/network/ipam/subnet.json
 var ipAllocator = &IPAM{
 	SubnetAllocatorPath: path.Join(container.NetIPadminDir, container.IPamConfigFile),
 }
 
+// load  反序列化 subnet.json
 func (ipam *IPAM) load() error {
 	if _, err := os.Stat(ipam.SubnetAllocatorPath); err != nil {
+
+		// 查看目标文件是否存在
 		if os.IsNotExist(err) {
-			return nil
-		} else {
+			// 不存在直接返回 文件不存在 错误
 			return err
 		}
 	}
+
+	// 打开文件并反序列化
 	subnetConfigFile, err := os.Open(ipam.SubnetAllocatorPath)
+
+	// return时关闭文件描述符
 	defer subnetConfigFile.Close()
+
+	// 打开文件失败 直接返回错误
 	if err != nil {
 		return err
 	}
-	subnetJson := make([]byte, 2000)
-	n, err := subnetConfigFile.Read(subnetJson)
+	log.Debug("Get config file %s", ipam.SubnetAllocatorPath)
+
+	// 创建字节切片作为反序列化承载
+	subnetJSONByte := make([]byte, 2000)
+
+	// n 为字节长度
+	n, err := subnetConfigFile.Read(subnetJSONByte)
+
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(subnetJson[:n], ipam.Subnets)
+	// 反序列化到 ipam.subnets
+	err = json.Unmarshal(subnetJSONByte[:n], ipam.Subnets)
 	if err != nil {
-		log.Errorf("Error dump allocation info, %v", err)
+		log.Errorf("Load Subnet info error %v", err)
 		return err
 	}
+
+	log.Debug("Load Subnet info success")
+
 	return nil
 }
 
+// dump 序列化 subnet.json
 func (ipam *IPAM) dump() error {
-	ipamConfigFileDir, _ := path.Split(ipam.SubnetAllocatorPath)
-	if _, err := os.Stat(ipamConfigFileDir); err != nil {
+	// 判断 NetIPadminDir 是否存在
+	// 不存在则创建
+	if _, err := os.Stat(container.NetIPadminDir); err != nil {
 		if os.IsNotExist(err) {
-			os.MkdirAll(ipamConfigFileDir, 0644)
-		} else {
-			return err
+			os.MkdirAll(container.NetIPadminDir, 0644)
+			log.Debug("Create ipam dir %s", container.NetIPadminDir)
 		}
 	}
-	subnetConfigFile, err := os.OpenFile(ipam.SubnetAllocatorPath, os.O_TRUNC | os.O_WRONLY | os.O_CREATE, 0644)
+
+	// 打开 subnet.json 文件 ，不存在则创建  标志位 os.O_CREATE
+	subnetConfigFile, err := os.OpenFile(ipam.SubnetAllocatorPath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	defer subnetConfigFile.Close()
 	if err != nil {
 		return err
 	}
 
-	ipamConfigJson, err := json.Marshal(ipam.Subnets)
+	log.Debug("Get config file %s", ipam.SubnetAllocatorPath)
+
+	// 序列化 bitmap
+	ipamConfigJSON, err := json.MarshalIndent(ipam.Subnets, " ", "    ")
 	if err != nil {
 		return err
 	}
 
-	_, err = subnetConfigFile.Write(ipamConfigJson)
+	// 写入文件
+	_, err = subnetConfigFile.Write(ipamConfigJSON)
 	if err != nil {
 		return err
 	}
+
+	log.Debug("Dump Subnet info success")
 
 	return nil
 }
 
+// Allocate 在网段中分配一个可用的 IP 地址
 func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
-	// 存放网段中地址分配信息的数组
+	// 存放网段中地址分配信息的 字符串切片
 	ipam.Subnets = &map[string]string{}
 
 	// 从文件中加载已经分配的网段信息
 	err = ipam.load()
 	if err != nil {
-		log.Errorf("Error dump allocation info, %v", err)
+		log.Errorf("Dump SubNet info error %v", err)
+		// 有名返回
+		return
 	}
 
+	// 将字符串转化为 网段信息
 	_, subnet, _ = net.ParseCIDR(subnet.String())
 
-	one, size := subnet.Mask.Size()
+	// 返回目标网段 网络位 和 主机位
+	// 127.0.0.0/8  netsize:8  size:32
+	netsize, size := subnet.Mask.Size()
 
+	// 如果之前没有分配过该网段 则初始化该网段
 	if _, exist := (*ipam.Subnets)[subnet.String()]; !exist {
-		(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1 << uint8(size - one))
+		// 用 0 填满该网段配置
+		// hostsize-netone 代表可用位数
+		// 左移运算符"<<"是双目运算符。左移n位就是乘以2的n次方。 其功能把"<<"左边的运算数的各二进位全部左移若干位
+		// 2^(size-netsize) == 1<<uint8(size-netsize)
+		(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1<<uint8(size-netsize))
 	}
 
-	for c := range((*ipam.Subnets)[subnet.String()]) {
-		if (*ipam.Subnets)[subnet.String()][c] == '0' {
-			ipalloc := []byte((*ipam.Subnets)[subnet.String()])
-			ipalloc[c] = '1'
-			(*ipam.Subnets)[subnet.String()] = string(ipalloc)
-			ip = subnet.IP
-			for t := uint(4); t > 0; t-=1 {
-				[]byte(ip)[4-t] += uint8(c >> ((t - 1) * 8))
+	// 遍历位图map中的字符串
+	for offset := range (*ipam.Subnets)[subnet.String()] {
+		// 找到第一个 value 为 0 的项，即为可分配的 IP 地址
+		if (*ipam.Subnets)[subnet.String()][offset] == '0' {
+			// 设置该项的 value 为 1
+			// 字符串切片不能直接赋值 "1"
+			ipAllocs := []byte((*ipam.Subnets)[subnet.String()])
+			ipAllocs[offset] = '1'
+
+			// 赋值回原 value
+			(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
+
+			// 获取初始IP ，即主机位全为 0
+			// 将 IP 转化为 4 字节表达形式
+			ip = subnet.IP.To4()
+
+			// 根据偏移量 offset  得到目标 IP
+			// 四次循环分别得到 1.2.3.4  1的偏移量 2的偏移量 3的偏移量 4的偏移量
+			for t := uint(4); t > 0; t-- {
+				// >> 右移n位就是除以2的n次方
+				// 忽略小数
+				[]byte(ip)[4-t] += uint8(offset >> ((t - 1) * 8))
 			}
-			ip[3]+=1
+
+			// 由于是从 主机位 1 开始分配，需要 +1
+			ip[3]++
 			break
 		}
 	}
 
+	// 持久化图位map
 	ipam.dump()
+
+	log.Debug("Allocate IP  %v success in %v", ip.String(), subnet.String())
+
+	// 有名返回
 	return
 }
 
-func (ipam *IPAM) Release(subnet *net.IPNet, ipaddr *net.IP) error {
+// Release 使用图位法释放IP地址
+func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
+	// 初始化反序列化结构
 	ipam.Subnets = &map[string]string{}
 
-	_, subnet, _ = net.ParseCIDR(subnet.String())
-
+	// 获取 ipam 数据
 	err := ipam.load()
 	if err != nil {
-		log.Errorf("Error dump allocation info, %v", err)
+		log.Errorf("Dump Subnet info error %v", err)
 	}
 
-	c := 0
-	releaseIP := ipaddr.To4()
-	releaseIP[3]-=1
-	for t := uint(4); t > 0; t-=1 {
-		c += int(releaseIP[t-1] - subnet.IP[t-1]) << ((4-t) * 8)
+	// 从ip地址得到网段地址
+	_, subnet, _ = net.ParseCIDR(subnet.String())
+
+	// 初始化偏移量
+	offset := 0
+
+	// 将ip地址设置为4字节表达形式
+	releaseIP := ip.To4()
+
+	// 除去 网关 1 地址
+	releaseIP[3]--
+	
+	// 计算偏移量
+	// 分配的反向计算
+	for t := uint(4); t > 0; t-- {
+		offset += int(releaseIP[t-1]-subnet.IP[t-1]) << ((4 - t) * 8)
 	}
 
-	ipalloc := []byte((*ipam.Subnets)[subnet.String()])
-	ipalloc[c] = '0'
-	(*ipam.Subnets)[subnet.String()] = string(ipalloc)
+	// 获取 位图map 偏移量 
+	ipAllocs := []byte((*ipam.Subnets)[subnet.String()])
 
+	// 释放地址
+	ipAllocs[offset] = '0'
+	(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
+
+	// 持久化修改后的数据
 	ipam.dump()
 	return nil
 }

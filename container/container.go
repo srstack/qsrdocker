@@ -55,7 +55,7 @@ type ContainerInfo struct {
 	Path		string					`json:"Path"`			// cmd 运行absPath
 	Args		[]string				`json:"Args"`			// cmdlsit
 	Env   		[]string				`json:"Env"`			// 运行的环境变量
-	NetWorks	*Endpoint		`json:"NetWorkConfig"` // 网络配置
+	NetWorks	*Endpoint				`json:"NetWorkConfig"` // 网络配置
 }
 
 // DriverInfo 镜像挂载信息

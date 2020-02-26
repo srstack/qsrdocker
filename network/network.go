@@ -17,13 +17,13 @@ import (
 
 var (
 	// NetworkDriverMap 网络驱动
-	NetworkDriverMap = map[string]NetworkDriver{
+	NetworkDriverMap = map[string]networkDriver{
 		"none": nil,
 	}
 )
 
-// NetworkDriver 网络 driver 接口  Host None Container Bridge
-type NetworkDriver interface {
+// networkDriver 网络 driver 接口  Host None Container Bridge
+type networkDriver interface {
 	// 驱动名称
 	Name() string
 	// 创建目标驱动的网络
@@ -112,6 +112,7 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 		port := &container.Port{}
 
 		// 根据长度判断 host ip
+		// 80:80
 		if len(portPairSlice) == 2 {
 			port.HostIP = "0.0.0.0"
 			port.HostPort = portPairSlice[0]
@@ -121,6 +122,7 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 			ports[portPairSlice[1]] = append(ports[portPairSlice[1]], port)
 		}
 
+		// 127.1.2.3:3306:3306
 		if len(portPairSlice) == 3 {
 			port.HostIP = portPairSlice[0]
 			port.HostPort = portPairSlice[1]
@@ -142,7 +144,7 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 	containerInfo.NetWorks = ep
 
 	// 调用网络驱动挂载和配置网络端点
-	if err = NetworkDriverMap[nw.Driver].Connect(nw, ep); err != nil {
+	if err = NetworkDriverMap[strings.ToLower(nw.Driver)].Connect(nw, ep); err != nil {
 		return err
 	}
 
