@@ -32,6 +32,7 @@ func main() {
 		removeCmd,
 		startCmd,
 		imageCmd,
+		networkCmd,
 	}
 
 	// 设定log配置项

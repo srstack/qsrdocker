@@ -5,12 +5,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
-	"path/filepath"
 	"qsrdocker/container"
 	"runtime"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -64,22 +61,22 @@ func CreateNetwork(driver, subnet, networkName string) error {
 }
 
 // DeleteNetwork 删除网络
-func DeleteNetwork(networkName string) error {
+func DeleteNetwork(networkID string) error {
 	nw := &container.Network{
-		Name: networkName,
+		ID: networkID,
 	}
 
 	if err := nw.Load(); err != nil {
-		return fmt.Errorf("Get NetWork %v Info err: %v", networkName, err)
+		return fmt.Errorf("Get NetWork %v Info err: %v", networkID, err)
 	}
 
 	// 回收 IP 地址
 	if err := ipAllocator.Release(nw.IP, &nw.IP.IP); err != nil {
-		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkName, nw.IP.IP, err)
+		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkID, nw.IP.IP, err)
 	}
 
 	if err := NetworkDriverMap[strings.ToLower(nw.Driver)].Delete(nw); err != nil {
-		return fmt.Errorf("Remove Network %v Driver error: %v", networkName, err)
+		return fmt.Errorf("Remove Network %v Driver error: %v", networkID, err)
 	}
 
 	// 删除配置文件
@@ -87,14 +84,14 @@ func DeleteNetwork(networkName string) error {
 }
 
 // Connect 连接容器和已创建网络
-func Connect(networkName string, portSlice []string, containerInfo *container.ContainerInfo) error {
+func Connect(networkID string, portSlice []string, containerInfo *container.ContainerInfo) error {
 
 	nw := &container.Network{
-		Name: networkName,
+		ID: networkID,
 	}
 
 	if err := nw.Load(); err != nil {
-		return fmt.Errorf("Get NetWork %v Info err: %v", networkName, err)
+		return fmt.Errorf("Get NetWork %v Info err: %v", networkID, err)
 	}
 
 	// 分配容器IP地址
@@ -136,7 +133,7 @@ func Connect(networkName string, portSlice []string, containerInfo *container.Co
 
 	// 创建网络端点
 	ep := &container.Endpoint{
-		ID:        fmt.Sprintf("%s-%s", containerInfo.ID, networkName),
+		ID:        fmt.Sprintf("%s-%s", containerInfo.ID, networkID),
 		IPAddress: ip,
 		Network:   nw,
 		Ports:     ports,
@@ -295,49 +292,6 @@ func configPortMapping(containerInfo *container.ContainerInfo) error {
 
 	}
 	return nil
-}
-
-// ListNetWork 显示现在存在的网络
-func ListNetWork() {
-	networks := []*container.Network{}
-
-	// 获取网络配置数据
-	filepath.Walk(container.NetFileDir, func(nwPath string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(nwPath, "/") {
-			return nil
-		}
-
-		// nwName   nwName.json
-		_, nwName := path.Split(nwPath)
-
-		nwName = nwName[0:(len(nwName) - 5)]
-		nw := &container.Network{
-			Name: nwName,
-		}
-
-		if err := nw.Load(); err != nil {
-			log.Errorf("Load network Config %v error : %v", nwName, err)
-		}
-
-		networks = append(networks, nw)
-		return nil
-	})
-
-	// 表格打印
-	w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
-	fmt.Fprint(w, "NAME\tIpRange\tDriver\n")
-	for _, nw := range networks {
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			nw.Name,
-			nw.IP.String(),
-			nw.Driver,
-		)
-	}
-	if err := w.Flush(); err != nil {
-		log.Errorf("Flush error %v", err)
-		return
-	}
-
 }
 
 // setInterfaceUP 启用网口

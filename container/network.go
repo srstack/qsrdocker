@@ -21,12 +21,12 @@ func (nw *Network) Dump() error {
 		return nil
 	}
 
-	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.Name].json
-	nwFilePath := path.Join(NetFileDir, strings.Join([]string{nw.Name, ".json"}, ""))
+	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.ID].json
+	nwFilePath := path.Join(NetFileDir, strings.Join([]string{nw.ID, ".json"}, ""))
 	// os.O_CREATE 不存在则自动创建
 	nwFile, err := os.OpenFile(nwFilePath, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		log.Errorf("Open network %v file in %v error：", nw.Name, NetFileDir, err)
+		log.Errorf("Open network %v file in %v error：", nw.ID, NetFileDir, err)
 		return err
 	}
 	defer nwFile.Close()
@@ -50,8 +50,8 @@ func (nw *Network) Dump() error {
 
 // Remove 删除网络配置
 func (nw *Network) Remove() error {
-	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.Name].json
-	nwFilePath := path.Join(NetFileDir, strings.Join([]string{nw.Name, ".json"}, ""))
+	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.ID].json
+	nwFilePath := path.Join(NetFileDir, strings.Join([]string{nw.ID, ".json"}, ""))
 
 	exist, err := PathExists(nwFilePath)
 	if err == nil {
@@ -70,8 +70,8 @@ func (nw *Network) Remove() error {
 // Load 获取网络配置
 func (nw *Network) Load() error {
 
-	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.Name].json
-	nwFilePath := path.Join(NetFileDir, strings.Join([]string{nw.Name, ".json"}, ""))
+	//  持久化路径 /var/qsrdocker/network/netfile/ [nw.ID].json
+	nwFilePath := path.Join(NetFileDir, strings.Join([]string{nw.ID, ".json"}, ""))
 
 	nwConfigFile, err := os.Open(nwFilePath)
 	defer nwConfigFile.Close()
@@ -90,7 +90,7 @@ func (nw *Network) Load() error {
 	// 反序列化
 	err = json.Unmarshal(nwInfoByte[:n], nw)
 	if err != nil {
-		log.Errorf("Error load network %v info", nw.Name, err)
+		log.Errorf("Error load network %v info", nw.ID, err)
 		return err
 	}
 	return nil

@@ -92,7 +92,7 @@ type ImageMateDataInfo struct {
 
 // Network 网络信息，包含了相关的 IP 信息，网络 Driver 信息，如 Host None Container Bridge
 type Network struct {
-	Name string			`json:"Name"`
+	ID string			`json:"NETWORK ID"`
 	IP *net.IPNet		`json:"IPNet"`
 	Driver string		`json:"NetDriver"`
 }
