@@ -2,6 +2,7 @@ package container
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -30,6 +31,8 @@ func (nw *Network) Dump() error {
 		return err
 	}
 	defer nwFile.Close()
+
+	nw.IPRangeString = nw.IPRange.String()
 
 	// json 格式
 	nwInfoByte, err := json.MarshalIndent(nw, " ", "    ")
@@ -93,5 +96,11 @@ func (nw *Network) Load() error {
 		log.Errorf("Error load network %v info", nw.ID, err)
 		return err
 	}
+
+	gwIP, IPRange, _ := net.ParseCIDR(nw.IPRangeString)
+
+	nw.IPRange = IPRange
+	nw.GateWayIP = gwIP.String()
+
 	return nil
 }

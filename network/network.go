@@ -37,7 +37,7 @@ type networkDriver interface {
 }
 
 // CreateNetwork 创建网络
-func CreateNetwork(driver, subnet, networkName string) error {
+func CreateNetwork(driver, subnet, networkID string) error {
 
 	// 讲网段字符串转化为 net.IPNet 对象
 	_, cidr, _ := net.ParseCIDR(subnet)
@@ -52,7 +52,7 @@ func CreateNetwork(driver, subnet, networkName string) error {
 	cidr.IP = gwIP
 
 	// 调用目标网络驱动的 create 方法创建网络
-	nw, err := NetworkDriverMap[strings.ToLower(driver)].Create(cidr.String(), networkName)
+	nw, err := NetworkDriverMap[strings.ToLower(driver)].Create(cidr.String(), networkID)
 	if err != nil {
 		return err
 	}
@@ -71,8 +71,8 @@ func DeleteNetwork(networkID string) error {
 	}
 
 	// 回收 IP 地址
-	if err := ipAllocator.Release(nw.IP, &nw.IP.IP); err != nil {
-		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkID, nw.IP.IP, err)
+	if err := ipAllocator.Release(nw.IPRange, &nw.IPRange.IP); err != nil {
+		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkID, nw.IPRange.IP, err)
 	}
 
 	if err := NetworkDriverMap[strings.ToLower(nw.Driver)].Delete(nw); err != nil {
@@ -95,7 +95,7 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 	}
 
 	// 分配容器IP地址
-	ip, err := ipAllocator.Allocate(nw.IP)
+	ip, err := ipAllocator.Allocate(nw.IPRange)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func configEndpointIPAddressAndRoute(containerInfo *container.ContainerInfo) err
 	defer enterContainerNetNs(&vethPeerLink, containerInfo)()
 
 	// 获取容器网络 IP 地址网段
-	interfaceIP := containerInfo.NetWorks.Network.IP
+	interfaceIP := containerInfo.NetWorks.Network.IPRange
 	// 获取容器网络 IP 地址
 	interfaceIP.IP = containerInfo.NetWorks.IPAddress
 

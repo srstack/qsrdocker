@@ -1,15 +1,16 @@
 package container
 
 import (
-	"os"
-	"strings"
-	"fmt"
-	"os/exec"
-	"syscall"
-	"path"
-	"io/ioutil"
-	"strconv"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"os/exec"
+	"path"
+	"strconv"
+	"strings"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -26,19 +27,19 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 			容器内部调用
 	*/
 
-	// 打印 command 
+	// 打印 command
 	//log.Debugf("Create Parent Process cmd: %v", command)
-	
+
 	readCmdPipe, writeCmdPipe, err := NewPipe()
-	
+
 	if err != nil {
 		log.Errorf("Create New Cmd pipe err: %v", err)
 		return nil, nil, nil
 	}
 
-	// exec 方式直接运行 qsrdocker init 
+	// exec 方式直接运行 qsrdocker init
 	cmd := exec.Command("/proc/self/exe", "init") // 执行 initCmd
-	uid := syscall.Getuid() // 字符串转int
+	uid := syscall.Getuid()                       // 字符串转int
 	gid := syscall.Getgid()
 
 	log.Debugf("Get qsrdocker : %v uid : %v ; gid : %v", containerID, uid, gid)
@@ -55,14 +56,14 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 			syscall.CLONE_NEWNS | // 史上第一个 Namespace
 			syscall.CLONE_NEWUSER |
 			syscall.CLONE_NEWNET,
-		UidMappings: []syscall.SysProcIDMap {
+		UidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0, // 映射为root
 				HostID:      uid,
 				Size:        1,
 			},
 		},
-		GidMappings: []syscall.SysProcIDMap {
+		GidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0, // 映射为root
 				HostID:      gid,
@@ -82,7 +83,7 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 
 		// 创建 /[containerDir]/[containerID]/ 目录
 		containerDir := path.Join(ContainerDir, containerID)
-		
+
 		if err := os.MkdirAll(containerDir, 0622); err != nil {
 			log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
 			return nil, nil, nil
@@ -91,18 +92,18 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 		containerLogFile := path.Join(containerDir, ContainerLogFile)
 		logFileFd, err := os.Create(containerLogFile)
 		if err != nil {
-			log.Errorf("NewParentProcess create log file %s error %v", containerLogFile , err)
+			log.Errorf("NewParentProcess create log file %s error %v", containerLogFile, err)
 			return nil, nil, nil
 		}
-		
+
 		// 将标准输出 错误 重定向到 log 文件中
 		cmd.Stdout = logFileFd
 		cmd.Stderr = logFileFd
 	}
 
 	// 传入管道问价读端fld
-	cmd.ExtraFiles = []*os.File {readCmdPipe}
-	// 一个进程的文件描d述符默认 0 1 2 代表 输入 输出 错误 
+	cmd.ExtraFiles = []*os.File{readCmdPipe}
+	// 一个进程的文件描d述符默认 0 1 2 代表 输入 输出 错误
 	// readCmdPipe 为外带的第四个文件描述符 下标为 3
 
 	// 设置进程环境变量
@@ -139,7 +140,7 @@ func NewPipe() (*os.File, *os.File, error) {
 	return read, write, nil
 }
 
-// InitUserNamespace 初始化 User Ns 
+// InitUserNamespace 初始化 User Ns
 // User Ns 默认关闭，需要手动开启
 func InitUserNamespace() error {
 
@@ -148,62 +149,70 @@ func InitUserNamespace() error {
 	userNamespaceCountByte, err := ioutil.ReadFile(userNamespacePath)
 
 	// 读取失败
-    if err != nil {
-	   return fmt.Errorf("Can't get UserNamespaceCount in %v error : %v" , userNamespacePath, err)
+	if err != nil {
+		return fmt.Errorf("Can't get UserNamespaceCount in %v error : %v", userNamespacePath, err)
 	}
-	
+
 	// []byte => string => 去空格 去换行
-	userNamespaceCount := strings.Replace(strings.Replace(string(userNamespaceCountByte)," ","", -1), "\n", "", -1)
+	userNamespaceCount := strings.Replace(strings.Replace(string(userNamespaceCountByte), " ", "", -1), "\n", "", -1)
 
 	if userNamespaceCount == "0" {
 		if err := ioutil.WriteFile(userNamespacePath, []byte("15000"), 0644); err != nil {
-			// 写入文件失败则返回 
+			// 写入文件失败则返回
 			return fmt.Errorf("Can't Set UserNamespaceCount in %v error : %v", userNamespacePath, err)
-		} 
-		// 成功设置 
+		}
+		// 成功设置
 		log.Debugf("Get UserNamespaceCount 15000 in %v", userNamespacePath)
 		return nil
 	}
-	
+
 	log.Debugf("Get UserNamespaceCount : %v in %v", userNamespaceCount, userNamespacePath)
-	
+
 	return nil
 }
 
 // StatusCheck 检测当前 container 状态
-func (s *StatusInfo) StatusCheck(){
+func (s *StatusInfo) StatusCheck() {
 	if exist, err := PathExists(path.Join("/proc", strconv.Itoa(s.Pid))); !exist || err != nil {
 		// 不是 qsrdocker stop ，则设置 dead
 		if !s.Paused {
 			s.StatusSet("Dead")
 		}
-		
+
 	} else {
 		s.StatusSet("Running")
 	}
 }
 
 // StatusSet 设置 container 状态
-func (s *StatusInfo) StatusSet(status string){
+func (s *StatusInfo) StatusSet(status string) {
 
 	// 设置所有的状态为 false
 	// true 状态唯一
 	switch s.Status {
-		case "Running"   : s.Running = false
-		case "Paused"    : s.Paused = false
-		case "OOMKilled" : s.OOMKilled = false
-		case "Dead"		 : s.Dead = false
+	case "Running":
+		s.Running = false
+	case "Paused":
+		s.Paused = false
+	case "OOMKilled":
+		s.OOMKilled = false
+	case "Dead":
+		s.Dead = false
 	}
 
 	s.Status = status
 
 	switch {
-		case status == "Running"   : s.Running = true
-		case status == "Paused"    : s.Paused = true
-		case status == "OOMKilled" : s.OOMKilled = true
-		case status == "Dead"		: s.Dead = true
+	case status == "Running":
+		s.Running = true
+	case status == "Paused":
+		s.Paused = true
+	case status == "OOMKilled":
+		s.OOMKilled = true
+	case status == "Dead":
+		s.Dead = true
 	}
-	
+
 }
 
 // GetContainerInfo 获取 container info
@@ -211,7 +220,7 @@ func GetContainerInfo(file os.FileInfo) (*ContainerInfo, error) {
 	containerID := file.Name()
 	configFilePtah := path.Join(ContainerDir, containerID, ConfigName)
 
-	// 读取目标文件 
+	// 读取目标文件
 	content, err := ioutil.ReadFile(configFilePtah)
 	if err != nil {
 		log.Errorf("Read file %s error %v", configFilePtah, err)
@@ -225,26 +234,31 @@ func GetContainerInfo(file os.FileInfo) (*ContainerInfo, error) {
 		return nil, err
 	}
 
+	// 检测网络结构体信息
+	checkNetwork(&containerInfo)
+
 	// 检测容器当前状态并持久化
 	containerInfo.Status.StatusCheck()
 
 	RecordContainerInfo(&containerInfo, containerID)
-	
+
 	// 返回结构体指针
 	return &containerInfo, nil
 }
 
 // RecordContainerInfo 持久化存储 containerInfo 数据
-func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) error {
+func RecordContainerInfo(containerInfo *ContainerInfo, containerID string) error {
 
-	// 序列化 container info 
+	// 检测网络结构体信息
+	checkNetwork(containerInfo)
+
+	// 序列化 container info
 	containerInfoBytes, err := json.MarshalIndent(containerInfo, " ", "    ")
 	if err != nil {
 		log.Errorf("Record container info error %v", err)
 		return err
 	}
 	containerInfoStr := strings.Join([]string{string(containerInfoBytes), "\n"}, "")
-	
 
 	// 创建 /[containerDir]/[containerID]/ 目录
 	containerDir := path.Join(ContainerDir, containerID)
@@ -252,10 +266,10 @@ func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) erro
 		log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
 		return err
 	}
-	
+
 	// 创建 /[containerDir]/[containerID]/config.json
 	containerInfoFile := path.Join(containerDir, ConfigName)
-	InfoFileFd ,err := os.Create(containerInfoFile )
+	InfoFileFd, err := os.Create(containerInfoFile)
 	defer InfoFileFd.Close()
 	if err != nil {
 		log.Errorf("Create container Info File %s error %v", containerInfoFile, err)
@@ -271,7 +285,7 @@ func RecordContainerInfo(containerInfo *ContainerInfo, containerID string ) erro
 	return nil
 }
 
-// GetContainerIDByName 通过 Name 获取 ID 
+// GetContainerIDByName 通过 Name 获取 ID
 func GetContainerIDByName(containerName string) (string, error) {
 	// 判断 container 目录是否存在
 	if exist, _ := PathExists(ContainerDir); !exist {
@@ -291,8 +305,8 @@ func GetContainerIDByName(containerName string) (string, error) {
 
 		// 文件不存在直接返回
 		return "", nil
-	} 
-	
+	}
+
 	// 映射文件存在
 	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
 	data, err := ioutil.ReadFile(containerNamePath)
@@ -310,7 +324,7 @@ func GetContainerIDByName(containerName string) (string, error) {
 	if ID, e := containerNameConfig[containerName]; e {
 		return ID, nil
 	}
-	
+
 	// 未获取到容器ID
 	return "", fmt.Errorf("Container Name:ID %v not in config file", containerName)
 }
@@ -323,8 +337,8 @@ func GetContainerInfoByNameID(containerName string) (*ContainerInfo, error) {
 	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
 		return nil, fmt.Errorf("Get containerID fail : %v", err)
 	}
-	
-	// 配置目录	
+
+	// 配置目录
 	containerConfigFile := path.Join(ContainerDir, containerID, ConfigName)
 
 	// 获取容器配置信息
@@ -332,32 +346,35 @@ func GetContainerInfoByNameID(containerName string) (*ContainerInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 反序列化
 	var containerInfo ContainerInfo
 	if err := json.Unmarshal(configBytes, &containerInfo); err != nil {
 		return nil, err
 	}
 
+	// 检测网络结构体信息
+	checkNetwork(&containerInfo)
+	
 	// 检测当前状态
 	containerInfo.Status.StatusCheck()
 
 	// 持久化当前状态
 	RecordContainerInfo(&containerInfo, containerID)
-	
+
 	return &containerInfo, nil
 }
 
 // GetImageMateDataInfoByName 通过镜像Name获取镜像runtime info
 func GetImageMateDataInfoByName(imageName string) (*ImageMateDataInfo, error) {
-	// 获取 image id 
+	// 获取 image id
 	imageLower := GetImageLower(imageName)
 
-	imageID := strings.Split(imageLower,":")[0]
+	imageID := strings.Split(imageLower, ":")[0]
 
 	log.Debugf("Get image ID is : %v", imageID)
-	
-	// 配置目录	
+
+	// 配置目录
 	imageMateDataInfoFile := path.Join(ImageMateDateDir, strings.Join([]string{imageID, ".json"}, ""))
 
 	// 获取容器配置信息
@@ -365,42 +382,69 @@ func GetImageMateDataInfoByName(imageName string) (*ImageMateDataInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 反序列化
 	var imageMateDataInfo ImageMateDataInfo
 	if err := json.Unmarshal(infoBytes, &imageMateDataInfo); err != nil {
 		return nil, err
 	}
-	
+
 	return &imageMateDataInfo, nil
 }
 
 // RemoveReplicaSliceString : 切片去重
 func RemoveReplicaSliceString(srcSlice []string) []string {
- 
+
 	resultSlice := make([]string, 0)
 	// 利用map key 值唯一去重
-    tempMap := make(map[string]bool, len(srcSlice))
-    for _, v := range srcSlice{
-        if tempMap[v] == false{
-            tempMap[v] = true
-            resultSlice = append(resultSlice, v)
-        }
-    }
-    return resultSlice
+	tempMap := make(map[string]bool, len(srcSlice))
+	for _, v := range srcSlice {
+		if tempMap[v] == false {
+			tempMap[v] = true
+			resultSlice = append(resultSlice, v)
+		}
+	}
+	return resultSlice
 }
-
 
 // RemoveNullSliceString : 删除空白字符的元素
 func RemoveNullSliceString(srcSlice []string) []string {
- 
+
 	resultSlice := make([]string, 0)
 
 	// 循环判断
-    for _, v := range srcSlice{
-        if v != "" && v != " " {
-            resultSlice = append(resultSlice, v)
-        }
-    }
-    return resultSlice
+	for _, v := range srcSlice {
+		if v != "" && v != " " {
+			resultSlice = append(resultSlice, v)
+		}
+	}
+	return resultSlice
+}
+
+// checkNetwork 检测网络相关结构体信息
+func checkNetwork(containerInfo *ContainerInfo) {
+
+	if containerInfo.NetWorks.IPAddressStr != "" && containerInfo.NetWorks.IPAddress == nil {
+		containerInfo.NetWorks.IPAddress = net.ParseIP(containerInfo.NetWorks.IPAddressStr)
+	} 
+
+	if containerInfo.NetWorks.IPAddressStr == "" && containerInfo.NetWorks.IPAddress != nil {
+		containerInfo.NetWorks.IPAddressStr = containerInfo.NetWorks.IPAddress.String()
+	}
+
+	if containerInfo.NetWorks.MacAddressStr != "" && containerInfo.NetWorks.MacAddress == nil {
+		containerInfo.NetWorks.MacAddress, _ = net.ParseMAC(containerInfo.NetWorks.MacAddressStr)
+	}
+
+	if containerInfo.NetWorks.MacAddressStr == "" && containerInfo.NetWorks.MacAddress != nil {
+		containerInfo.NetWorks.MacAddressStr = containerInfo.NetWorks.MacAddress.String()
+	}
+
+	if containerInfo.NetWorks.Network.IPRangeString != "" && containerInfo.NetWorks.Network.IPRange == nil {
+		_, containerInfo.NetWorks.Network.IPRange, _ = net.ParseCIDR(containerInfo.NetWorks.Network.IPRangeString)
+	}
+
+	if containerInfo.NetWorks.Network.IPRangeString == "" && containerInfo.NetWorks.Network.IPRange != nil {
+		containerInfo.NetWorks.Network.IPRangeString = containerInfo.NetWorks.Network.IPRange.String()
+	}
 }
