@@ -423,6 +423,10 @@ func RemoveNullSliceString(srcSlice []string) []string {
 
 // checkNetwork 检测网络相关结构体信息
 func checkNetwork(containerInfo *ContainerInfo) {
+	
+	if containerInfo.NetWorks == nil {
+		return
+	}
 
 	if containerInfo.NetWorks.IPAddressStr != "" && containerInfo.NetWorks.IPAddress == nil {
 		containerInfo.NetWorks.IPAddress = net.ParseIP(containerInfo.NetWorks.IPAddressStr)
