@@ -48,7 +48,7 @@ func (ipam *IPAM) load() error {
 	if err != nil {
 		return err
 	}
-	log.Debug("Get config file %s", ipam.SubnetAllocatorPath)
+	log.Debugf("Get config file %s", ipam.SubnetAllocatorPath)
 
 	// 创建字节切片作为反序列化承载
 	subnetJSONByte := make([]byte, 2000)
@@ -63,11 +63,11 @@ func (ipam *IPAM) load() error {
 	// 反序列化到 ipam.subnets
 	err = json.Unmarshal(subnetJSONByte[:n], ipam.Subnets)
 	if err != nil {
-		log.Errorf("Load Subnet info error %v", err)
+		log.Errorf("Unmarshal Subnet info error %v", err)
 		return err
 	}
 
-	log.Debug("Load Subnet info success")
+	log.Debugf("Load Subnet info success")
 
 	return nil
 }
@@ -79,7 +79,7 @@ func (ipam *IPAM) dump() error {
 	if _, err := os.Stat(container.NetIPadminDir); err != nil {
 		if os.IsNotExist(err) {
 			os.MkdirAll(container.NetIPadminDir, 0644)
-			log.Debug("Create ipam dir %s", container.NetIPadminDir)
+			log.Debugf("Create ipam dir %s", container.NetIPadminDir)
 		}
 	}
 
@@ -90,16 +90,19 @@ func (ipam *IPAM) dump() error {
 		return err
 	}
 
-	log.Debug("Get config file %s", ipam.SubnetAllocatorPath)
+	log.Debugf("Get config file %s", ipam.SubnetAllocatorPath)
 
 	// 序列化 bitmap
-	ipamConfigJSON, err := json.MarshalIndent(ipam.Subnets, " ", "    ")
+	ipamConfigJSONByte, err := json.MarshalIndent(ipam.Subnets, " ", "    ")
 	if err != nil {
 		return err
 	}
 
+	ipamConfigJSONStr := string(ipamConfigJSONByte)
+	ipamConfigJSONStr = strings.Join([]string{ipamConfigJSONStr, "\n"}, "")
+
 	// 写入文件
-	_, err = subnetConfigFile.Write(ipamConfigJSON)
+	_, err = subnetConfigFile.WriteString(ipamConfigJSONStr)
 	if err != nil {
 		return err
 	}
@@ -115,11 +118,14 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 	ipam.Subnets = &map[string]string{}
 
 	// 从文件中加载已经分配的网段信息
-	err = ipam.load()
-	if err != nil {
-		log.Errorf("Dump SubNet info error %v", err)
-		// 有名返回
-		return
+	// 存在配置文件才 load
+	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
+		err = ipam.load()
+		if err != nil {
+			log.Errorf("Dump SubNet info error %v", err)
+			// 有名返回
+			return
+		}
 	}
 
 	// 将字符串转化为 网段信息
@@ -171,7 +177,7 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 	// 持久化图位map
 	ipam.dump()
 
-	log.Debug("Allocate IP  %v success in %v", ip.String(), subnet.String())
+	log.Debugf("Allocate IP  %v success in %v", ip.String(), subnet.String())
 
 	// 有名返回
 	return
@@ -199,14 +205,14 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 
 	// 除去 网关 1 地址
 	releaseIP[3]--
-	
+
 	// 计算偏移量
 	// 分配的反向计算
 	for t := uint(4); t > 0; t-- {
 		offset += int(releaseIP[t-1]-subnet.IP[t-1]) << ((4 - t) * 8)
 	}
 
-	// 获取 位图map 偏移量 
+	// 获取 位图map 偏移量
 	ipAllocs := []byte((*ipam.Subnets)[subnet.String()])
 
 	// 释放地址
@@ -215,5 +221,9 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 
 	// 持久化修改后的数据
 	ipam.dump()
+	
+	// 恢复IP
+	releaseIP[3]++
+	
 	return nil
 }
