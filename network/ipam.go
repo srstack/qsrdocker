@@ -212,18 +212,27 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 		offset += int(releaseIP[t-1]-subnet.IP[t-1]) << ((4 - t) * 8)
 	}
 
-	// 获取 位图map 偏移量
-	ipAllocs := []byte((*ipam.Subnets)[subnet.String()])
+	if offset == 0 {
+		// 释放网关地址则删除该网段
+		delete((*ipam.Subnets), subnet.String())
+		
+	} else {  
+		// 释放单个地址
+		// 获取 位图map 偏移量
+		ipAllocs := []byte((*ipam.Subnets)[subnet.String()])
 
-	// 释放地址
-	ipAllocs[offset] = '0'
-	(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
+		// 释放地址
+		ipAllocs[offset] = '0'
+		(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
+	}
+
+	
 
 	// 持久化修改后的数据
 	ipam.dump()
-	
+
 	// 恢复IP
 	releaseIP[3]++
-	
+
 	return nil
 }

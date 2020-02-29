@@ -18,7 +18,8 @@ import (
 var (
 	// NetworkDriverMap 网络驱动
 	NetworkDriverMap = map[string]networkDriver{
-		"none": nil,
+		"none":   nil,
+		"bridge": BridgeNetworkDriver{},
 	}
 )
 
@@ -27,7 +28,7 @@ type networkDriver interface {
 	// 驱动名称
 	Name() string
 	// 创建目标驱动的网络
-	Create(subnet string, name string) (*container.Network, error)
+	Create(subnet string, networkID string) (*container.Network, error)
 	// 删除目标驱动的网络
 	Delete(network *container.Network) error
 	// 连接网络端点EndPoint到网络
@@ -49,10 +50,12 @@ func CreateNetwork(driver, subnet, networkID string) error {
 		return err
 	}
 
+	// 讲网关IP设置为 网段 默认 IP  cidr.IP
 	cidr.IP = gwIP
 
 	// 调用目标网络驱动的 create 方法创建网络
 	nw, err := NetworkDriverMap[strings.ToLower(driver)].Create(cidr.String(), networkID)
+
 	if err != nil {
 		return err
 	}
@@ -70,11 +73,14 @@ func DeleteNetwork(networkID string) error {
 		return fmt.Errorf("Get NetWork %v Info err: %v", networkID, err)
 	}
 
-	// 回收 IP 地址
-	if err := ipAllocator.Release(nw.IPRange, &nw.IPRange.IP); err != nil {
-		return fmt.Errorf("Remove Network %v gateway ip %v error: %v", networkID, nw.IPRange.IP, err)
+	gwip := net.ParseIP(nw.GateWayIP)
+
+	// 回收 IP 网段全部 地址
+	if err := ipAllocator.Release(nw.IPRange, &gwip); err != nil {
+		return fmt.Errorf("Remove Network %v Gateway ip %v error: %v", networkID, nw.IPRange.IP, err)
 	}
 
+	// 执行 网络驱动 删除
 	if err := NetworkDriverMap[strings.ToLower(nw.Driver)].Delete(nw); err != nil {
 		return fmt.Errorf("Remove Network %v Driver error: %v", networkID, err)
 	}
