@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"qsrdocker/container"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -105,6 +106,50 @@ func (bridge *BridgeNetworkDriver) Disconnect(network *container.Network, endpoi
 	return nil
 }
 
-func (bridge *BridgeNetworkDriver) initBridge(nw *container.Network) error {
+// initBridge 初始化 bridge
+func (bridge *BridgeNetworkDriver) initBridge(network *container.Network) error {
+
+	// 获取已经设置好的ID信息
+	bridgeID := network.ID
+
+	//chun
+	if err := createBridgeInterface(bridgeID); err != nil {
+		return fmt.Errorf("Error add bridge： %s, Error: %v", bridgeName, err)
+	}
+
+	// Set bridge IP
+	gatewayIP := *n.IpRange
+	gatewayIP.IP = n.IpRange.IP
+
+	if err := setInterfaceIP(bridgeName, gatewayIP.String()); err != nil {
+		return fmt.Errorf("Error assigning address: %s on bridge: %s with an error of: %v", gatewayIP, bridgeName, err)
+	}
+
+	if err := setInterfaceUP(bridgeName); err != nil {
+		return fmt.Errorf("Error set bridge up: %s, Error: %v", bridgeName, err)
+	}
+
+	// Setup iptables
+	if err := setupIPTables(bridgeName, n.IpRange); err != nil {
+		return fmt.Errorf("Error setting iptables for %s: %v", bridgeName, err)
+	}
+
+	return nil
+}
+
+func createBridgeInterface(bridgeName string) error {
+	_, err := net.InterfaceByName(bridgeName)
+	if err == nil || !strings.Contains(err.Error(), "no such network interface") {
+		return err
+	}
+
+	// create *netlink.Bridge object
+	la := netlink.NewLinkAttrs()
+	la.Name = bridgeName
+
+	br := &netlink.Bridge{LinkAttrs: la}
+	if err := netlink.LinkAdd(br); err != nil {
+		return fmt.Errorf("Bridge creation failed for bridge %s: %v", bridgeName, err)
+	}
 	return nil
 }

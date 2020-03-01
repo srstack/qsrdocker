@@ -164,7 +164,16 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 }
 
 // Disconnect 解除容器和已创建网络的连接
-func Disconnect(networkName string, containerInfo *container.ContainerInfo) error {
+func Disconnect(networkID string, containerInfo *container.ContainerInfo) error {
+
+	// 调用网络驱动 删除连接
+	if err := NetworkDriverMap[strings.ToLower(containerInfo.NetWorks.Network.Driver)].Disconnect(containerInfo.NetWorks.Network, containerInfo.NetWorks); err != nil {
+		return err
+	}
+
+	// 情况容器网络状态
+	containerInfo.NetWorks = &container.Endpoint{}
+
 	return nil
 }
 
@@ -342,12 +351,13 @@ func setInterfaceIP(peerName string, rawIP string) error {
 
 	// 设置IP
 	addr := &netlink.Addr{IPNet: ipNet, Peer: ipNet, Label: "", Flags: 0, Scope: 0, Broadcast: nil}
+
 	return netlink.AddrAdd(iface, addr)
 }
 
 // setupIPTables 设置SNAT
-func setupIPTables(bridgeName string, subnet *net.IPNet) error {
-	iptablesCmd := fmt.Sprintf("-t nat -A POSTROUTING -s %s ! -o %s -j MASQUERADE", subnet.String(), bridgeName)
+func setupIPTables(bridgeID string, subnet *net.IPNet) error {
+	iptablesCmd := fmt.Sprintf("-t nat -A POSTROUTING -s %s ! -o %s -j MASQUERADE", subnet.String(), bridgeID)
 	cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
 	//err := cmd.Run()
 	output, err := cmd.Output()
