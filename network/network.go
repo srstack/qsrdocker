@@ -34,7 +34,7 @@ type networkDriver interface {
 	// 连接网络端点EndPoint到网络
 	Connect(network *container.Network, endpoint *container.Endpoint) error
 	// 断开网络端点EndPoint到网络
-	Disconnect(network *container.Network, endpoint *container.Endpoint) error
+	Disconnect(endpoint *container.Endpoint) error
 }
 
 // CreateNetwork 创建网络
@@ -167,7 +167,7 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 func Disconnect(networkID string, containerInfo *container.ContainerInfo) error {
 
 	// 调用网络驱动 删除连接
-	if err := NetworkDriverMap[strings.ToLower(containerInfo.NetWorks.Network.Driver)].Disconnect(containerInfo.NetWorks.Network, containerInfo.NetWorks); err != nil {
+	if err := NetworkDriverMap[strings.ToLower(containerInfo.NetWorks.Network.Driver)].Disconnect(containerInfo.NetWorks); err != nil {
 		return err
 	}
 

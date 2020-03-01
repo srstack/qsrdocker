@@ -102,7 +102,15 @@ func (bridge *BridgeNetworkDriver) Connect(network *container.Network, endpoint 
 }
 
 // Disconnect 接触和 目标 Bridge 网络的连接
-func (bridge *BridgeNetworkDriver) Disconnect(network *container.Network, endpoint *container.Endpoint) error {
+func (bridge *BridgeNetworkDriver) Disconnect(endpoint *container.Endpoint) error {
+
+	// 删除 容器 bridge link 连接
+	err := netlink.LinkDel(&endpoint.Device)
+
+	if err != nil {
+		return fmt.Errorf("Del Bridge link %v error %v", endpoint.ID, err)
+	}
+
 	return nil
 }
 
@@ -112,44 +120,56 @@ func (bridge *BridgeNetworkDriver) initBridge(network *container.Network) error 
 	// 获取已经设置好的ID信息
 	bridgeID := network.ID
 
-	//chun
+	// 创建 bridge 网络接口
 	if err := createBridgeInterface(bridgeID); err != nil {
-		return fmt.Errorf("Error add bridge： %s, Error: %v", bridgeName, err)
+		return fmt.Errorf("Create Bridge Interface %s error: %v", bridgeID, err)
 	}
 
-	// Set bridge IP
-	gatewayIP := *n.IpRange
-	gatewayIP.IP = n.IpRange.IP
+	// 设置 网关 网段 IP 信息
+	gatewayIP := *network.IPRange
+	gatewayIP.IP = net.ParseIP(network.Driver)
 
-	if err := setInterfaceIP(bridgeName, gatewayIP.String()); err != nil {
-		return fmt.Errorf("Error assigning address: %s on bridge: %s with an error of: %v", gatewayIP, bridgeName, err)
+	// 在 host os 上  ip set [interface]
+	if err := setInterfaceIP(bridgeID, gatewayIP.String()); err != nil {
+		return fmt.Errorf("Set IP Interface %s on Bridge Net %s error %v", gatewayIP.String(), bridgeID, err)
 	}
 
-	if err := setInterfaceUP(bridgeName); err != nil {
-		return fmt.Errorf("Error set bridge up: %s, Error: %v", bridgeName, err)
+	// 在 host os 上 set up Bridge 接口
+	if err := setInterfaceUP(bridgeID); err != nil {
+		return fmt.Errorf("Set Bridge up %s error: %v", bridgeID, err)
 	}
 
-	// Setup iptables
-	if err := setupIPTables(bridgeName, n.IpRange); err != nil {
-		return fmt.Errorf("Error setting iptables for %s: %v", bridgeName, err)
+	// 创建 snat
+	// 即 所有从 Bridge 出方向流量的 ip source 都设置为 bridge 网络
+	if err := setupIPTables(bridgeID, network.IPRange); err != nil {
+		return fmt.Errorf("Set SNAT in iptables for Bridge Net %s error %v", bridgeID, err)
 	}
 
 	return nil
 }
 
-func createBridgeInterface(bridgeName string) error {
-	_, err := net.InterfaceByName(bridgeName)
+// createBridgeInterface 创建 Bridge
+func createBridgeInterface(bridgeID string) error {
+
+	// 判断目标 bridge 网络是否已经创建
+	_, err := net.InterfaceByName(bridgeID)
+
+	// 存在 其他报错的可能性
+	// 只有 no such network interface 报错，才是表明未创建目标 bridge 网络
 	if err == nil || !strings.Contains(err.Error(), "no such network interface") {
 		return err
 	}
 
-	// create *netlink.Bridge object
-	la := netlink.NewLinkAttrs()
-	la.Name = bridgeName
+	// 创建网络 link 配置
+	linkAttrs := netlink.NewLinkAttrs()
+	linkAttrs.Name = bridgeID
 
-	br := &netlink.Bridge{LinkAttrs: la}
-	if err := netlink.LinkAdd(br); err != nil {
-		return fmt.Errorf("Bridge creation failed for bridge %s: %v", bridgeName, err)
+	// 创建 Bridge 网络 Link
+	bridgeLink := &netlink.Bridge{LinkAttrs: linkAttrs}
+
+	// link add 在  host os 中 添加 目标 Bridge 网络 Link
+	if err := netlink.LinkAdd(bridgeLink); err != nil {
+		return fmt.Errorf("Create Bridge %v Link failed error %v", bridgeID, err)
 	}
 	return nil
 }
