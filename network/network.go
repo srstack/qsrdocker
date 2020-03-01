@@ -19,7 +19,7 @@ var (
 	// NetworkDriverMap 网络驱动
 	NetworkDriverMap = map[string]networkDriver{
 		"none":   nil,
-		"bridge": BridgeNetworkDriver{},
+		"bridge": &BridgeNetworkDriver{},
 	}
 )
 
