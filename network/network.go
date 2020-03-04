@@ -43,6 +43,9 @@ func CreateNetwork(driver, subnet, networkID string) error {
 	// 讲网段字符串转化为 net.IPNet 对象
 	_, cidr, _ := net.ParseCIDR(subnet)
 
+	// 创建目标网段
+	ipAllocator.Create(cidr)
+
 	// 从 IP manager 获取 网关IP
 	// 目标网段的第一个 IP
 	gwIP, err := ipAllocator.Allocate(cidr)
@@ -279,6 +282,7 @@ func configPortMapping(containerInfo *container.ContainerInfo) error {
 		// pm ===  {hostip: string , hostPort: string }
 		// dnatInfo "443/tcp"
 
+		// container port
 		//dnatSlice ["443","tcp"]
 		dnatSlice := strings.Split(dnatInfo, "/")
 

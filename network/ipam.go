@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -112,6 +113,66 @@ func (ipam *IPAM) dump() error {
 	return nil
 }
 
+// Create 创建新的网段
+func (ipam *IPAM) Create(subnet *net.IPNet) (err error) {
+	// 存放网段中地址分配信息的 字符串切片
+	ipam.Subnets = &map[string]string{}
+
+	// 从文件中加载已经分配的网段信息
+	// 存在配置文件才 load
+	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
+		err = ipam.load()
+		if err != nil {
+			log.Errorf("Dump SubNet info error %v", err)
+			// 有名返回
+			return
+		}
+	}
+
+	// 如果之前分配过该网段, 则返回错误
+	if _, exist := (*ipam.Subnets)[subnet.String()]; exist {
+		err = fmt.Errorf("Subnet %v is exist, please Create another Subnet", subnet.String())
+		return
+	}
+
+	// 判断 网段是否冲突
+	// subnetCreatedString : 192.168.1.0/24
+	for subnetCreatedString := range *ipam.Subnets {
+		// 得到 已创建网络的 网络位地址 192.168.1.0 和 网段 192.168.1.0/24
+		ipCreated, subCreated, _ := net.ParseCIDR(subnetCreatedString)
+
+		// 1. 新创建网络包含已创建网络 网络位地址
+		// 2. 已创建网络包含 新建网络 网络位地址
+		// 满足以上仁义一种情况则说明 网段冲突
+		if subnet.Contains(ipCreated) || subCreated.Contains(subnet.IP) {
+			err = fmt.Errorf("Network Subnet %v fail error conflict with %v", subnet.String(), subCreated.String())
+			return
+		}
+	}
+
+	// 返回目标网段 网络位 和 主机位
+	// 127.0.0.0/8  netsize:8  size:32
+	netsize, size := subnet.Mask.Size()
+
+	if netsize < 24 {
+		err = fmt.Errorf("Network Subnet Mask must > 24")
+		return
+	}
+
+	// 用 0 填满该网段配置
+	// hostsize-netone 代表可用位数
+	// 左移运算符"<<"是双目运算符。左移n位就是乘以2的n次方。 其功能把"<<"左边的运算数的各二进位全部左移若干位
+	// 2^(size-netsize) == 1<<uint8(size-netsize)
+	(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1<<uint8(size-netsize))
+
+	// 将创建的网络信息持久化
+	ipam.dump()
+
+	log.Debugf("Create SubNet %v success ", subnet.String())
+
+	return
+}
+
 // Allocate 在网段中分配一个可用的 IP 地址
 func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 	// 存放网段中地址分配信息的 字符串切片
@@ -131,17 +192,10 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 	// 将字符串转化为 网段信息
 	_, subnet, _ = net.ParseCIDR(subnet.String())
 
-	// 返回目标网段 网络位 和 主机位
-	// 127.0.0.0/8  netsize:8  size:32
-	netsize, size := subnet.Mask.Size()
-
-	// 如果之前没有分配过该网段 则初始化该网段
+	// 如果之前没有分配过该网段, 则返回错误
 	if _, exist := (*ipam.Subnets)[subnet.String()]; !exist {
-		// 用 0 填满该网段配置
-		// hostsize-netone 代表可用位数
-		// 左移运算符"<<"是双目运算符。左移n位就是乘以2的n次方。 其功能把"<<"左边的运算数的各二进位全部左移若干位
-		// 2^(size-netsize) == 1<<uint8(size-netsize)
-		(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1<<uint8(size-netsize))
+		err = fmt.Errorf("Subnet %v is not exist, please Create Network first", subnet.String())
+		return
 	}
 
 	// 遍历位图map中的字符串
@@ -215,8 +269,8 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 	if offset == 0 {
 		// 释放网关地址则删除该网段
 		delete((*ipam.Subnets), subnet.String())
-		
-	} else {  
+
+	} else {
 		// 释放单个地址
 		// 获取 位图map 偏移量
 		ipAllocs := []byte((*ipam.Subnets)[subnet.String()])
@@ -225,8 +279,6 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 		ipAllocs[offset] = '0'
 		(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
 	}
-
-	
 
 	// 持久化修改后的数据
 	ipam.dump()
