@@ -44,7 +44,10 @@ func CreateNetwork(driver, subnet, networkID string) error {
 	_, cidr, _ := net.ParseCIDR(subnet)
 
 	// 创建目标网段
-	ipAllocator.Create(cidr)
+	if err := ipAllocator.Create(cidr); err != nil {
+		return fmt.Errorf("Create Network error %v", err)
+	}
+	
 
 	// 从 IP manager 获取 网关IP
 	// 目标网段的第一个 IP
