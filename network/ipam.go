@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"io/ioutil"
 	"os"
 	"path"
 	"qsrdocker/container"
@@ -40,10 +41,7 @@ func (ipam *IPAM) load() error {
 	}
 
 	// 打开文件并反序列化
-	subnetConfigFile, err := os.Open(ipam.SubnetAllocatorPath)
-
-	// return时关闭文件描述符
-	defer subnetConfigFile.Close()
+	subnetJSONBytes, err := ioutil.ReadFile(ipam.SubnetAllocatorPath)
 
 	// 打开文件失败 直接返回错误
 	if err != nil {
@@ -51,18 +49,8 @@ func (ipam *IPAM) load() error {
 	}
 	log.Debugf("Get config file %s", ipam.SubnetAllocatorPath)
 
-	// 创建字节切片作为反序列化承载
-	subnetJSONByte := make([]byte, 2000)
-
-	// n 为字节长度
-	n, err := subnetConfigFile.Read(subnetJSONByte)
-
-	if err != nil {
-		return err
-	}
-
 	// 反序列化到 ipam.subnets
-	err = json.Unmarshal(subnetJSONByte[:n], ipam.Subnets)
+	err = json.Unmarshal(subnetJSONBytes, ipam.Subnets)
 	if err != nil {
 		log.Errorf("Unmarshal Subnet info error %v", err)
 		return err
