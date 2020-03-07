@@ -474,24 +474,24 @@ func listContainers(all bool) {
 
 	// 遍历所有文件
 	for _, dir := range containerDirs {
-		
+
 		// 若获取 containernames.json ，则直接 continue
 		if dir.Name() == container.ContainerNameFile {
 			continue
 		}
-		
+
 		// 获取 containerInfo
 		tmpContainerInfo, err := container.GetContainerInfo(dir)
 		if err != nil {
 			log.Errorf("Get container info error %v", err)
 			continue
 		}
-		
+
 		// 若无 -a ，则不显示 running 状态之外的 containerinfo
 		if !all && !tmpContainerInfo.Status.Running {
 			continue
 		}
-		
+
 		containerInfos = append(containerInfos, tmpContainerInfo)
 	}
 
@@ -499,47 +499,51 @@ func listContainers(all bool) {
 	w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
 	fmt.Fprint(w, "CONTAINER ID\tIMAGE\tNAME\tPID\tSTATUS\tCOMMAND\tUP TIME\tCREATED\n")
 	for _, info := range containerInfos {
-		fmt.Fprintf( w, "%s\t%s\t%s\t%v\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%v\t%s\t%s\t%s\t%s\n",
 			info.ID,
 			info.Image,
 			info.Name,
 			info.Status.Pid,
 			info.Status.Status,
 			//  path + args
-			strings.Join(append([]string{info.Path}, info.Args...)," "),
+			strings.Join(append([]string{info.Path}, info.Args...), " "),
 			// 匿名函数
 			func(info *container.ContainerInfo) string {
 				if info.Status.Running {
 					// string => time
 					startTime, err := time.ParseInLocation(
 						"2006-01-02 15:04:05",
-						info.Status.StartTime, 
+						info.Status.StartTime,
 						time.Local,
 					)
 
 					if err != nil {
 						return "NULL"
 					}
-					
+
 					// 当前时间
 					newTime := time.Now()
 					// 获取时间差
 					uptime := newTime.Sub(startTime)
-					
-					switch{
-						// up time days
-						case uptime.Hours() >= 24: return fmt.Sprintf("Up %d Days", int(uptime.Hours()/24))
-						// up time hours
-						case uptime.Hours() < 24 && uptime.Hours() >= 1: return fmt.Sprintf("Up %d Hours", int(uptime.Hours()))
-						// up time min
-						case uptime.Minutes() < 60 && uptime.Minutes() >= 1: return fmt.Sprintf("Up %d Minutes", int(uptime.Minutes()))
-						// up time sec
-						case uptime.Seconds() < 60 : return fmt.Sprintf("Up %d Seconds", int(uptime.Seconds()))
+
+					switch {
+					// up time days
+					case uptime.Hours() >= 24:
+						return fmt.Sprintf("Up %d Days", int(uptime.Hours()/24))
+					// up time hours
+					case uptime.Hours() < 24 && uptime.Hours() >= 1:
+						return fmt.Sprintf("Up %d Hours", int(uptime.Hours()))
+					// up time min
+					case uptime.Minutes() < 60 && uptime.Minutes() >= 1:
+						return fmt.Sprintf("Up %d Minutes", int(uptime.Minutes()))
+					// up time sec
+					case uptime.Seconds() < 60:
+						return fmt.Sprintf("Up %d Seconds", int(uptime.Seconds()))
 					}
-					
+
 				}
-				return "NULL"	
-			} (info),
+				return "NULL"
+			}(info),
 			info.CreatedTime,
 		)
 	}
@@ -576,7 +580,7 @@ func CommitContainer(containerName, imageNameTag string) {
 	log.Debugf("Get new image ID is %v", imageID)
 
 	containerID, err := container.GetContainerIDByName(containerName)
-	
+
 	if strings.Replace(containerID, " ", "", -1) == "" || err != nil {
 		log.Errorf("Get containerID fail : %v", err)
 		return
@@ -595,20 +599,20 @@ func CommitContainer(containerName, imageNameTag string) {
 		containerEnvSlice := getEnvSliceByPid(strconv.Itoa(containerInfo.Status.Pid))
 		// 可能存在 container 设置的环境变量
 		containerInfo.Env = append(containerInfo.Env, containerEnvSlice...)
-		containerInfo.Env = container.RemoveReplicaSliceString(containerInfo.Env)	
+		containerInfo.Env = container.RemoveReplicaSliceString(containerInfo.Env)
 	}
-	
+
 	// 获取 容器的 运行状态
 	imageMateDataInfo := &container.ImageMateDataInfo{
 		Path: containerInfo.Path,
 		Args: containerInfo.Args,
-		Env: containerInfo.Env,
+		Env:  containerInfo.Env,
 	}
-	
+
 	container.RecordContainerInfo(containerInfo, containerID)
 	// 持久化 imageMateDataInfo
 	recordImageMateDataInfo(imageMateDataInfo, imageID)
-	
+
 	// 容器工作目录
 	// 容器 COW 层数据 ，分层镜像
 	// /MountDir/[containerID]/diff/
@@ -616,27 +620,27 @@ func CommitContainer(containerName, imageNameTag string) {
 	mountPath = strings.Join([]string{mountPath, "/"}, "")
 
 	// 获取 container 目录 lower 文件
-	lowerPath :=  path.Join(container.MountDir, containerID, "lower")
+	lowerPath := path.Join(container.MountDir, containerID, "lower")
 
 	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
 	lowerInfoBytes, err := ioutil.ReadFile(lowerPath)
 	if err != nil {
 		log.Errorf("Can't open lower  : %v", lowerPath)
-		return 
+		return
 	}
-	
+
 	// 获取 lower 层信息
 	lowerInfo := string(lowerInfoBytes)
-	lowerInfo = strings.Join([]string{imageID, lowerInfo},":")
-	
+	lowerInfo = strings.Join([]string{imageID, lowerInfo}, ":")
 
 	imageTarPath := path.Join(container.ImageDir, imageID)
-	imageTarPath = strings.Join([]string{imageTarPath, ".tar", }, "")
+	imageTarPath = strings.Join([]string{imageTarPath, ".tar"}, "")
 
+	// 运行命令，并返回标准输出和标准错误
 	if _, err := exec.Command("tar", "-czf", imageTarPath, "-C", mountPath, ".").CombinedOutput(); err != nil {
 		log.Errorf("Tar folder %s error %v", mountPath, err)
 	}
-	
+
 	recordImageInfo(imageName, imageTag, lowerInfo)
 
 }
@@ -663,7 +667,7 @@ func randStringImageID(n int) string {
 
 // recordImageInfo 保存 imagename:tag:lower(id) 信息
 func recordImageInfo(imageName, imageTag, imageLower string) {
-	
+
 	// 判断 container 目录是否存在
 	if exist, _ := container.PathExists(container.ImageDir); !exist {
 		err := os.MkdirAll(container.ImageDir, 0622)
@@ -672,7 +676,7 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 		}
 	}
 
-	// 创建反序列化载体 
+	// 创建反序列化载体
 	var imageConfig map[string]map[string]string
 
 	// 映射文件目录
@@ -681,10 +685,10 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 	// 判断映射文件是否存在
 	if exist, _ := container.PathExists(imageConfigPath); !exist {
 		ConfigFile, err := os.Create(imageConfigPath)
-		
+
 		if err != nil {
 			log.Errorf("Create file %s error %v", imageConfigPath, err)
-			return 
+			return
 		}
 
 		defer ConfigFile.Close()
@@ -697,12 +701,12 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 			imageConfig[imageName] = make(map[string]string)
 		}
 		imageConfig[imageName][imageTag] = imageLower
-		
+
 		// 存入数据
-		imageConfigBytes, err := json.MarshalIndent(imageConfig, " ", "    ") 
+		imageConfigBytes, err := json.MarshalIndent(imageConfig, " ", "    ")
 		if err != nil {
 			log.Errorf("Record image : %v:%v config err : %v", imageName, imageTag, err)
-			return 
+			return
 		}
 		imageConfigStr := strings.Join([]string{string(imageConfigBytes), "\n"}, "")
 
@@ -710,10 +714,10 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 			log.Errorf("File write string error %v", err)
 			return
 		}
-		
+
 		log.Debugf("Record image : %v:%v config success", imageName, imageTag)
 		return
-		
+
 	}
 	// 映射文件存在
 
@@ -721,14 +725,14 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 	data, err := ioutil.ReadFile(imageConfigPath)
 	if err != nil {
 		log.Errorf("Can't open imageConfigPath : %v", imageConfigPath)
-		return 
+		return
 	}
 
 	//读取的数据为json格式，需要进行解码
 	err = json.Unmarshal(data, &imageConfig)
 	if err != nil {
 		log.Errorf("Can't Unmarshal : %v", imageConfigPath)
-		return 
+		return
 	}
 
 	// 设置 json
@@ -736,27 +740,26 @@ func recordImageInfo(imageName, imageTag, imageLower string) {
 		imageConfig[imageName] = make(map[string]string)
 	}
 	imageConfig[imageName][imageTag] = imageLower
-	
+
 	// 存入数据
 	imageConfigBytes, err := json.MarshalIndent(imageConfig, " ", "    ")
 	if err != nil {
 		log.Errorf("Record image : %v:%v config err : %v", imageName, imageTag, err)
-		return 
+		return
 	}
 
 	imageConfigStr := strings.Join([]string{string(imageConfigBytes), "\n"}, "")
 
 	if err = ioutil.WriteFile(imageConfigPath, []byte(imageConfigStr), 0644); err != nil {
 		log.Errorf("Record container Name:ID fail err : %v", err)
-	}else {
+	} else {
 		log.Debugf("Record image : %v:%v config success", imageName, imageTag)
-	}		
+	}
 }
-
 
 // recordImageMateDataInfo 保存 image runtime 信息
 func recordImageMateDataInfo(imageMateDataInfo *container.ImageMateDataInfo, imageID string) {
-	
+
 	// 判断 container 目录是否存在
 	if exist, _ := container.PathExists(container.ImageMateDateDir); !exist {
 		err := os.MkdirAll(container.ImageMateDateDir, 0622)
@@ -765,26 +768,26 @@ func recordImageMateDataInfo(imageMateDataInfo *container.ImageMateDataInfo, ima
 		}
 	}
 
-	// 序列化 container info 
+	// 序列化 container info
 	imageMateDataInfoBytes, err := json.MarshalIndent(imageMateDataInfo, " ", "    ")
 	if err != nil {
 		log.Errorf("Record imageMateDataInfo error %v", err)
-		return 
+		return
 	}
 	imageMateDataInfoStr := strings.Join([]string{string(imageMateDataInfoBytes), "\n"}, "")
 
 	// 创建 /[imageMateDataDir]/[imageID].json
 	imageMateDataInfoFile := path.Join(container.ImageMateDateDir, strings.Join([]string{imageID, ".json"}, ""))
-	InfoFileFd ,err := os.Create(imageMateDataInfoFile )
+	InfoFileFd, err := os.Create(imageMateDataInfoFile)
 	defer InfoFileFd.Close()
 	if err != nil {
 		log.Errorf("Create image matedata File %s error %v", imageMateDataInfoFile, err)
-		return 
+		return
 	}
 
 	// 写入 containerInfo
 	if _, err := InfoFileFd.WriteString(imageMateDataInfoStr); err != nil {
 		log.Errorf("Write image matedata Info error %v", err)
-		return 
+		return
 	}
 }

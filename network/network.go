@@ -47,7 +47,6 @@ func CreateNetwork(driver, subnet, networkID string) error {
 	if err := ipAllocator.Create(cidr); err != nil {
 		return fmt.Errorf("Create Network error %v", err)
 	}
-	
 
 	// 从 IP manager 获取 网关IP
 	// 目标网段的第一个 IP
@@ -156,7 +155,7 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 	containerInfo.NetWorks = ep
 
 	// 调用网络驱动挂载和配置网络端点
-	if err = NetworkDriverMap[strings.ToLower(nw.Driver)].Connect(nw, ep); err != nil {
+	if err = NetworkDriverMap[strings.ToLower(nw.Driver)].Connect(nw, containerInfo.NetWorks); err != nil {
 		return err
 	}
 
@@ -281,6 +280,13 @@ func configEndpointIPAddressAndRoute(containerInfo *container.ContainerInfo) err
 
 // configPortMapping 使用 iptables 完成 dnat 端口映射
 func configPortMapping(containerInfo *container.ContainerInfo) error {
+
+	// 获取 container IP 和 容器网络link信息
+	containerIP := containerInfo.NetWorks.IPAddress.String()
+	containerIPWithMask := fmt.Sprintf("%v/32", containerIP)
+	linkID := containerInfo.NetWorks.Network.ID // bridgeID
+
+	// 获取 portmap 信息
 	for dnatInfo, portSlice := range containerInfo.NetWorks.Ports {
 		// pm ===  {hostip: string , hostPort: string }
 		// dnatInfo "443/tcp"
@@ -300,18 +306,112 @@ func configPortMapping(containerInfo *container.ContainerInfo) error {
 		// 存在 1:n 端口映射
 		for _, pm := range portSlice {
 			// iptables dnat
-			iptablesCmd := fmt.Sprintf(
-				"-t nat -A PREROUTING -d %s -p %s -m %s --dport %s -j DNAT --to-destination %s:%s",
-				pm.HostIP, protocol, protocol, pm.HostPort, containerInfo.NetWorks.IPAddress.String(), containerPort)
-
+			// -A QSRDOCKER -d [172.17.0.3/32] ! -i [qsrdocker0] -o [qsrdocker0] -p [tcp] -m [tcp] --dport [3306] -j ACCEPT
+			PortMappingAcceptCmd := fmt.Sprintf(
+				"-A QSRDOCKER -d %s ! -i %s -o %s -p %s -m %s --dport %s -j ACCEPT",
+				containerIPWithMask, linkID, linkID, protocol, protocol, containerPort)
 			// 执行 iptables
-			cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
-			//err := cmd.Run()
-			output, err := cmd.Output()
+			_, err := exec.Command("iptables", strings.Split(PortMappingAcceptCmd, " ")...).CombinedOutput()
+
 			if err != nil {
-				log.Errorf("iptables Output, %v", output)
+				log.Errorf("iptables set error %v", err)
 				continue
 			}
+
+			// -A POSTROUTING -s 172.17.0.2/32 -d 172.17.0.2/32 -p tcp -m tcp --dport 3306 -j MASQUERADE
+			PortMappingPostRoutingCmd := fmt.Sprintf(
+				"-t nat -A POSTROUTING -s %v -d %v -p %v -m %v --dport %v -j MASQUERADE",
+				containerIPWithMask, containerIPWithMask, protocol, protocol, containerPort)
+			// 执行 iptables
+			_, err = exec.Command("iptables", strings.Split(PortMappingPostRoutingCmd, " ")...).CombinedOutput()
+
+			if err != nil {
+				log.Errorf("iptables set error %v", err)
+				continue
+			}
+
+			// -A DOCKER ! -i qsrdocker0 -p tcp -m tcp --dport 33060 -j DNAT --to-destination 172.17.0.2:3306
+			PortMappingDNatCmd := fmt.Sprintf(
+				"-t nat -A QSRDOCKER ! -i %v -p %v -m %v --dport %v -j DNAT --to-destination %v:%v",
+				linkID, protocol, protocol, pm.HostPort, containerIP, containerPort)
+			// 执行 iptables
+			_, err = exec.Command("iptables", strings.Split(PortMappingDNatCmd, " ")...).CombinedOutput()
+
+			if err != nil {
+				log.Errorf("iptables set error %v", err)
+				continue
+			}
+
+		}
+
+	}
+	return nil
+}
+
+// delPortMapping 删除 iptables 完成 dnat 端口映射
+func delPortMapping(containerInfo *container.ContainerInfo) error {
+
+	// 获取 container IP 和 容器网络link信息
+	containerIP := containerInfo.NetWorks.IPAddress.String()
+	containerIPWithMask := fmt.Sprintf("%v/32", containerIP)
+	linkID := containerInfo.NetWorks.Network.ID // bridgeID
+
+	// 获取 portmap 信息
+	for dnatInfo, portSlice := range containerInfo.NetWorks.Ports {
+		// pm ===  {hostip: string , hostPort: string }
+		// dnatInfo "443/tcp"
+
+		// container port
+		//dnatSlice ["443","tcp"]
+		dnatSlice := strings.Split(dnatInfo, "/")
+
+		if len(dnatSlice) != 2 {
+			log.Errorf("Get port nat error, %v", dnatSlice)
+			continue
+		}
+
+		containerPort := dnatSlice[0]
+		protocol := strings.ToLower(dnatSlice[1])
+
+		// 存在 1:n 端口映射
+		for _, pm := range portSlice {
+			// iptables dnat
+			// -D QSRDOCKER -d [172.17.0.3/32] ! -i [qsrdocker0] -o [qsrdocker0] -p [tcp] -m [tcp] --dport [3306] -j ACCEPT
+			PortMappingAcceptCmd := fmt.Sprintf(
+				"-D QSRDOCKER -d %s ! -i %s -o %s -p %s -m %s --dport %s -j ACCEPT",
+				containerIPWithMask, linkID, linkID, protocol, protocol, containerPort)
+			// 执行 iptables
+			_, err := exec.Command("iptables", strings.Split(PortMappingAcceptCmd, " ")...).CombinedOutput()
+
+			if err != nil {
+				log.Errorf("iptables del error %v", err)
+				continue
+			}
+
+			// -D POSTROUTING -s 172.17.0.2/32 -d 172.17.0.2/32 -p tcp -m tcp --dport 3306 -j MASQUERADE
+			PortMappingPostRoutingCmd := fmt.Sprintf(
+				"-t nat -D POSTROUTING -s %v -d %v -p %v -m %v --dport %v -j MASQUERADE",
+				containerIPWithMask, containerIPWithMask, protocol, protocol, containerPort)
+			// 执行 iptables
+			_, err = exec.Command("iptables", strings.Split(PortMappingPostRoutingCmd, " ")...).CombinedOutput()
+
+			if err != nil {
+				log.Errorf("iptables del error %v", err)
+				continue
+			}
+
+			// -D DOCKER ! -i qsrdocker0 -p tcp -m tcp --dport 33060 -j DNAT --to-destination 172.17.0.2:3306
+			PortMappingDNatCmd := fmt.Sprintf(
+				"-t nat -D QSRDOCKER ! -i %v -p %v -m %v --dport %v -j DNAT --to-destination %v:%v",
+				linkID, protocol, protocol, pm.HostPort, containerIP, containerPort)
+			// 执行 iptables
+			_, err = exec.Command("iptables", strings.Split(PortMappingDNatCmd, " ")...).CombinedOutput()
+
+			if err != nil {
+				log.Errorf("iptables del error %v", err)
+				continue
+			}
+
 		}
 
 	}
@@ -319,36 +419,46 @@ func configPortMapping(containerInfo *container.ContainerInfo) error {
 }
 
 // setInterfaceUP 启用网口
-func setInterfaceUP(interfaceName string) error {
-	iface, err := netlink.LinkByName(interfaceName)
+func setInterfaceUP(bridgeID string) error {
+
+	// 获取网络信息
+	link, err := netlink.LinkByName(bridgeID)
 	if err != nil {
-		return fmt.Errorf("Retrieving a link named %s error: %v", iface.Attrs().Name, err)
+		return fmt.Errorf("Get link by named %s error: %v", link.Attrs().Name, err)
 	}
 
-	if err := netlink.LinkSetUp(iface); err != nil {
-		return fmt.Errorf("Enabling interface for %s  error : %v", interfaceName, err)
+	// ip xxx up 启动网口(接口)
+	if err := netlink.LinkSetUp(link); err != nil {
+		return fmt.Errorf("Set up interface %s  error : %v", bridgeID, err)
 	}
+
 	return nil
 }
 
 // setInterfaceIP Set the IP addr of a netlink interface 设置 veth peer IP
-func setInterfaceIP(peerName string, rawIP string) error {
+func setInterfaceIP(bridgeID string, rawIP string) error {
 
+	// 设置重启次数
 	retries := 3
-	var iface netlink.Link
+
+	// 设置 link 连接 和 err
+	var link netlink.Link
 	var err error
+
+	// 多次尝试 获取 目标网络信息
 	for i := 1; i < retries; i++ {
-		iface, err = netlink.LinkByName(peerName)
+		// 获取网络信息
+		link, err = netlink.LinkByName(bridgeID)
 		if err == nil {
 			break
 		}
-		log.Debugf("Retrieving new Bridge netlink link %s fail，retrying %v", peerName, i)
+		log.Debugf("Get New Bridge link %s fail，retry time %v", bridgeID, i)
 		// 重试等待时间
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 
 	if err != nil {
-		return fmt.Errorf("Abandoning retrieving the new bridge link from netlink, Run [ ip link ] to troubleshoot the error: %v", err)
+		return fmt.Errorf("Get New Bridge link %v error: %v", bridgeID, err)
 	}
 
 	ipNet, err := netlink.ParseIPNet(rawIP)
@@ -359,17 +469,193 @@ func setInterfaceIP(peerName string, rawIP string) error {
 	// 设置IP
 	addr := &netlink.Addr{IPNet: ipNet, Peer: ipNet, Label: "", Flags: 0, Scope: 0, Broadcast: nil}
 
-	return netlink.AddrAdd(iface, addr)
+	// 在 host 主机上执行 ip add
+	return netlink.AddrAdd(link, addr)
 }
 
 // setupIPTables 设置SNAT
-func setupIPTables(bridgeID string, subnet *net.IPNet) error {
-	iptablesCmd := fmt.Sprintf("-t nat -A POSTROUTING -s %s ! -o %s -j MASQUERADE", subnet.String(), bridgeID)
-	cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
-	//err := cmd.Run()
-	output, err := cmd.Output()
+// -A FORWARD -o qsrdocker0 -j QSRDOCKER
+// -A FORWARD -o qsrdocker0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+// -A FORWARD -i qsrdocker0 ! -o qsrdocker0 -j ACCEPT
+// -A FORWARD -i qsrdocker0 -o qsrdocker0 -j ACCEPT
+// -t nat -A POSTROUTING -s 172.17.0.0/16 ! -o docker0 -j MASQUERADE  (SNAT)
+func setIPTables(bridgeID string, subnet *net.IPNet) error {
+
+	// 设置转发链 QSRDOCKER Chain  cmd
+	setChainCmd := fmt.Sprintf("-A FORWARD -o %v -j QSRDOCKER", bridgeID)
+	// 直接运行 cmd 命令
+	_, err := exec.Command("iptables", strings.Split(setChainCmd, " ")...).CombinedOutput()
+
 	if err != nil {
-		log.Errorf("iptables Output, %v", output)
+		return err
 	}
-	return err
+
+	// 设置转发规则 conntrack
+	setConntrackCmd := fmt.Sprintf("-A FORWARD -o %v -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT", bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setConntrackCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 设置 非目标网络到目标网络 的 流量转发
+	setForwardNotLocalCmd := fmt.Sprintf("-A FORWARD -i %v ! -o %v -j ACCEPT", bridgeID, bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setForwardNotLocalCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 设置 非目标网络到目标网络 的 流量转发
+	setForwardLocalCmd := fmt.Sprintf("-A FORWARD -i %v -o %v -j ACCEPT", bridgeID, bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setForwardLocalCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 设置 SNAT
+	setSnatCmd := fmt.Sprintf("-t nat -A POSTROUTING -s %v ! -o %v -j MASQUERADE", subnet.String(), bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setSnatCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// -t nat -A DOCKER -i docker0 -j RETURN
+	setNatCmd := fmt.Sprintf("-t nat -A QSRDOCKER -i %v-j RETURN", bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setNatCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// delIPTables 删除网络 iptables 设置
+func delIPTables(bridgeID string, subnet *net.IPNet) error {
+
+	// 取消转发链 QSRDOCKER Chain  cmd
+	setChainCmd := fmt.Sprintf("-D FORWARD -o %v -j QSRDOCKER", bridgeID)
+	// 直接运行 cmd 命令
+	_, err := exec.Command("iptables", strings.Split(setChainCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 取消转发规则 conntrack
+	setConntrackCmd := fmt.Sprintf("-D FORWARD -o %v -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT", bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setConntrackCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 取消非目标网络到目标网络 的 流量转发
+	setForwardNotLocalCmd := fmt.Sprintf("-D FORWARD -i %v ! -o %v -j ACCEPT", bridgeID, bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setForwardNotLocalCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 取消 非目标网络到目标网络 的 流量转发
+	setForwardLocalCmd := fmt.Sprintf("-D FORWARD -i %v -o %v -j ACCEPT", bridgeID, bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setForwardLocalCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// 取消 SNAT
+	setSnatCmd := fmt.Sprintf("-t nat -D POSTROUTING -s %v ! -o %v -j MASQUERADE", subnet.String(), bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setSnatCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	// -t nat -A DOCKER -i docker0 -j RETURN
+	setNatCmd := fmt.Sprintf("-t nat -D QSRDOCKER -i %v-j RETURN", bridgeID)
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setNatCmd, " ")...).CombinedOutput()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// IPtablesInit 初始化容器iptables
+// -nat -A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER
+// -nat -A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j DOCKER
+func IPtablesInit() error {
+
+	// 创建新链
+	newChainCmd := "-N QSRDOCKER"
+
+	// 直接运行 cmd 命令
+	_, err := exec.Command("iptables", strings.Split(newChainCmd, " ")...).CombinedOutput()
+
+	// 报错不为空
+	if err != nil {
+		// 报错信息为  Chain already exists 表示已经创建过 直接返回
+		if strings.Contains(err.Error(), "Chain already exists") {
+			return nil
+		}
+		return err
+	}
+
+	// 创建新链
+	newNatChainCmd := "-t nat -N QSRDOCKER"
+
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(newNatChainCmd, " ")...).CombinedOutput()
+
+	// 报错不为空
+	if err != nil {
+		// 报错信息为  Chain already exists 表示已经创建过 直接返回
+		if strings.Contains(err.Error(), "Chain already exists") {
+			return nil
+		}
+		return err
+	}
+
+	// 设置 Prerouting 规则
+	setPreroutingCmd := "-t nat -A PREROUTING -m addrtype --dst-type LOCAL -j QSRDOCKER"
+
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setPreroutingCmd, " ")...).CombinedOutput()
+
+	// 报错不为空
+	if err != nil {
+		return err
+	}
+
+	// 设置output规则
+	setOutputCmd := "-t nat -A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j QSRDOCKER"
+
+	// 直接运行 cmd 命令
+	_, err = exec.Command("iptables", strings.Split(setOutputCmd, " ")...).CombinedOutput()
+
+	// 报错不为空
+	if err != nil {
+		return err
+	}
+
+	log.Debug("Create New iptables Chain QSRDOCKER success")
+
+	return nil
 }

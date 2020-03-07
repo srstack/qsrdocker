@@ -56,6 +56,12 @@ func (bridge *BridgeNetworkDriver) Delete(network *container.Network) error {
 		return fmt.Errorf("Get Bridge link error %v", err)
 	}
 
+	 err = delIPTables(network.ID, network.IPRange)
+	 
+	 if err != nil {
+		return fmt.Errorf("Del iptables error %v", err)
+	}
+
 	// 删除目标 link
 	return netlink.LinkDel(bridgeLink)
 }
@@ -98,6 +104,10 @@ func (bridge *BridgeNetworkDriver) Connect(network *container.Network, endpoint 
 	if err = netlink.LinkSetUp(&endpoint.Device); err != nil {
 		return fmt.Errorf("Set Up Bridge Link %v error %v", endpoint.ID[:5], err)
 	}
+
+	// 设置目标 mac 地址
+	endpoint.MacAddress = endpoint.Device.HardwareAddr
+
 	return nil
 }
 
@@ -141,8 +151,8 @@ func (bridge *BridgeNetworkDriver) initBridge(network *container.Network) error 
 
 	// 创建 snat
 	// 即 所有从 Bridge 出方向流量的 ip source 都设置为 bridge 网络
-	if err := setupIPTables(bridgeID, network.IPRange); err != nil {
-		return fmt.Errorf("Set SNAT in iptables for Bridge Net %s error %v", bridgeID, err)
+	if err := setIPTables(bridgeID, network.IPRange); err != nil {
+		return fmt.Errorf("Set iptables for Bridge Net %s error %v", bridgeID, err)
 	}
 
 	return nil
