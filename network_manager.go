@@ -29,7 +29,7 @@ var networkCmd = cli.Command{
 var networkCreateCmd = cli.Command{
 	Name:  "create",
 	Usage: "create a container network",
-	ArgsUsage: "[NetWork Name]",
+	ArgsUsage: "NetWorkName",
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "driver",
@@ -71,7 +71,7 @@ var networkCreateCmd = cli.Command{
 var networkRemoveCmd = cli.Command{
 	Name: "remove",
 	Usage: "Remove Network",
-	ArgsUsage: "[NetWork Name]",
+	ArgsUsage: "NetWorkName",
 	Action: func(context *cli.Context) error {
 		
 		// 判断是否输入 NetWork Name 

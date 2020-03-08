@@ -15,7 +15,7 @@ import (
 var runCmd = cli.Command{
 	Name: "run",
 	Usage: `Create a container with namespace and cgroup`,
-	ArgsUsage: "[imageName] [command]",
+	ArgsUsage: "imageName [command]",
 
 	Flags: []cli.Flag{
 		cli.BoolFlag{
@@ -149,7 +149,7 @@ var initCmd = cli.Command{
 // 分层镜像特性实现
 var commitCmd = cli.Command {
 	Name: "commit",
-	ArgsUsage: "[containerName] [imageName]",
+	ArgsUsage: "containerName imageName",
 	Usage: "commit a container into image",
 	Action: func(context *cli.Context) error {
 
@@ -191,7 +191,7 @@ var listCmd = cli.Command{
 var logCmd = cli.Command{
 	Name:  "logs",
 	Usage: "Print logs of a container",
-	ArgsUsage: "[containerName]",
+	ArgsUsage: "containerName",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:    "f,follow", // tail -f 追踪
@@ -228,7 +228,7 @@ var logCmd = cli.Command{
 var execCmd = cli.Command{
 	Name:  "exec",
 	Usage: "Exec a command into container",
-	ArgsUsage: "[containerName] [command]",
+	ArgsUsage: "containerName [command]",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:    "it,ti", // 指定 t 参数即当前的输入输出导入到标准输入输出
@@ -272,7 +272,7 @@ var execCmd = cli.Command{
 var inspectCmd = cli.Command{
 	Name:  "inspect",
 	Usage: "Print info of a container",
-	ArgsUsage: "[containerName]",
+	ArgsUsage: "containerName",
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
 			return fmt.Errorf("Please input container Name")
@@ -291,7 +291,7 @@ var inspectCmd = cli.Command{
 var stopCmd = cli.Command{
 	Name:  "stop",
 	Usage: "Stop a container",
-	ArgsUsage: "[containerName]",
+	ArgsUsage: "containerName",
 	Flags: []cli.Flag{
 		cli.IntFlag{
 			Name:  	"t", // 指定 t 
@@ -316,7 +316,7 @@ var stopCmd = cli.Command{
 var removeCmd = cli.Command{
 	Name:  "rm",
 	Usage: "Remove unused one or more containers",
-	ArgsUsage: "[containerName...]",
+	ArgsUsage: "containerName...",
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:    "f", // 强制删除容器
@@ -348,7 +348,7 @@ var removeCmd = cli.Command{
 var startCmd = cli.Command{
 	Name:  "start",
 	Usage: "Start one or more stopped containers",
-	ArgsUsage: "[containerName...]",
+	ArgsUsage: "containerName...",
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
 			return fmt.Errorf("Missing container name")

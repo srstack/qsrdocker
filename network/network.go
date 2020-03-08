@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"qsrdocker/container"
 	"runtime"
 	"strings"
@@ -44,7 +45,12 @@ func CreateNetwork(driver, subnet, networkID string) error {
 	if err := IPtablesInit(); err != nil {
 		return fmt.Errorf("Can't Init iptables error : %v", err)
 	}
-	
+
+	// 判断网络ID是否已经存在
+	nwFilePath := path.Join(container.NetFileDir, strings.Join([]string{networkID, ".json"}, ""))
+	if exists, _ := container.PathExists(nwFilePath); exists {
+		return fmt.Errorf("Network Name %v exists", networkID)
+	}
 
 	// 讲网段字符串转化为 net.IPNet 对象
 	_, cidr, _ := net.ParseCIDR(subnet)
