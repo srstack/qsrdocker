@@ -18,7 +18,7 @@ import (
 var (
 	// NetworkDriverMap 网络驱动
 	NetworkDriverMap = map[string]networkDriver{
-		"none":   nil,
+		"none":   nil, // none 网络
 		"bridge": &BridgeNetworkDriver{},
 	}
 )

@@ -38,6 +38,8 @@ var (
 	Driver         string = "overlay2"
 	MountType      string = "bind"
 	IPamConfigFile string = "subnet.json"
+	IPamLockFile   string = "_ipam.lock"
+	
 )
 
 // ContainerInfo 容器基本信息描述

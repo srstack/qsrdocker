@@ -3,12 +3,13 @@ package network
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"qsrdocker/container"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -20,6 +21,8 @@ import (
 type IPAM struct {
 	// 分配文件
 	SubnetAllocatorPath string
+	// 锁文件
+	SubnetLockPath string
 	// 网段和位图算法的数组map  key是网段  value是分配的位图数组
 	Subnets *map[string]string
 }
@@ -27,17 +30,49 @@ type IPAM struct {
 // 初始化 IPAM 使用 /var/qsrdocker/network/ipam/subnet.json
 var ipAllocator = &IPAM{
 	SubnetAllocatorPath: path.Join(container.NetIPadminDir, container.IPamConfigFile),
+	SubnetLockPath:      path.Join(container.NetIPadminDir, container.IPamLockFile),
 }
 
 // load  反序列化 subnet.json
 func (ipam *IPAM) load() error {
-	if _, err := os.Stat(ipam.SubnetAllocatorPath); err != nil {
 
-		// 查看目标文件是否存在
-		if os.IsNotExist(err) {
-			// 不存在直接返回 文件不存在 错误
-			return err
+	// 判断文件锁是否存在
+
+	// 多次尝试
+	for i := 1; i < 3; i++ {
+
+		if exists, _ := container.PathExists(ipam.SubnetLockPath); exists {
+			log.Debugf("Get subnet lock fail, retry %v", i)
+		} else {
+
+			// 判断 IPAM 目录是否存在 不存在则创建
+			if exists, _ = container.PathExists(container.NetIPadminDir); !exists {
+				os.MkdirAll(container.NetIPadminDir, 0644)
+			}
+
+			// 创建 文件锁
+			lock, err := os.Create(ipam.SubnetLockPath)
+			if err != nil {
+				// 创建失败则返回
+				return fmt.Errorf("Create subnet lock file fail error %v", err)
+			}
+
+			// 关闭锁文件
+			lock.Close()
+			// 跳出循环
+			break
 		}
+
+		// 重试等待时间
+		time.Sleep(1 * time.Second)
+	}
+
+	// 判断 subnet 配置文件是否粗存在
+	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
+
+		// 不存在直接返回 空
+		// 目前无 subnet 信息
+		return nil
 	}
 
 	// 打开文件并反序列化
@@ -45,6 +80,7 @@ func (ipam *IPAM) load() error {
 
 	// 打开文件失败 直接返回错误
 	if err != nil {
+		os.Remove(ipam.SubnetLockPath)
 		return err
 	}
 	log.Debugf("Get config file %s", ipam.SubnetAllocatorPath)
@@ -53,6 +89,7 @@ func (ipam *IPAM) load() error {
 	err = json.Unmarshal(subnetJSONBytes, ipam.Subnets)
 	if err != nil {
 		log.Errorf("Unmarshal Subnet info error %v", err)
+		os.Remove(ipam.SubnetLockPath)
 		return err
 	}
 
@@ -63,13 +100,19 @@ func (ipam *IPAM) load() error {
 
 // dump 序列化 subnet.json
 func (ipam *IPAM) dump() error {
+
+	// 删除锁文件
+	defer func (){
+		if err := os.Remove(ipam.SubnetLockPath); err != nil {
+			log.Errorf("Remove file lock fail error %v", err)
+		}	
+	}()
+
 	// 判断 NetIPadminDir 是否存在
 	// 不存在则创建
-	if _, err := os.Stat(container.NetIPadminDir); err != nil {
-		if os.IsNotExist(err) {
-			os.MkdirAll(container.NetIPadminDir, 0644)
-			log.Debugf("Create ipam dir %s", container.NetIPadminDir)
-		}
+	if exists, _ := container.PathExists(container.NetIPadminDir); !exists {
+		os.MkdirAll(container.NetIPadminDir, 0644)
+		log.Debugf("Create ipam dir %s", container.NetIPadminDir)
 	}
 
 	// 打开 subnet.json 文件 ，不存在则创建  标志位 os.O_CREATE
@@ -103,6 +146,10 @@ func (ipam *IPAM) dump() error {
 
 // Create 创建新的网段
 func (ipam *IPAM) Create(subnet *net.IPNet) (err error) {
+
+	// 持久化配置
+	defer ipam.dump()
+
 	// 存放网段中地址分配信息的 字符串切片
 	ipam.Subnets = &map[string]string{}
 
@@ -153,9 +200,6 @@ func (ipam *IPAM) Create(subnet *net.IPNet) (err error) {
 	// 2^(size-netsize) == 1<<uint8(size-netsize)
 	(*ipam.Subnets)[subnet.String()] = strings.Repeat("0", 1<<uint8(size-netsize))
 
-	// 将创建的网络信息持久化
-	ipam.dump()
-
 	log.Debugf("Create SubNet %v success ", subnet.String())
 
 	return
@@ -163,6 +207,10 @@ func (ipam *IPAM) Create(subnet *net.IPNet) (err error) {
 
 // Allocate 在网段中分配一个可用的 IP 地址
 func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
+
+	// 持久化配置
+	defer ipam.dump()
+
 	// 存放网段中地址分配信息的 字符串切片
 	ipam.Subnets = &map[string]string{}
 
@@ -170,7 +218,7 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 	// 存在配置文件才 load
 	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
 		err = ipam.load()
-		if err != nil {
+		if err != nil { 
 			log.Errorf("Dump SubNet info error %v", err)
 			// 有名返回
 			return
@@ -216,9 +264,6 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 		}
 	}
 
-	// 持久化图位map
-	ipam.dump()
-
 	log.Debugf("Allocate IP  %v success in %v", ip.String(), subnet.String())
 
 	// 有名返回
@@ -227,6 +272,10 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 
 // Release 使用图位法释放IP地址
 func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
+
+	// 持久化配置
+	defer ipam.dump()
+
 	// 初始化反序列化结构
 	ipam.Subnets = &map[string]string{}
 
@@ -267,9 +316,6 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 		ipAllocs[offset] = '0'
 		(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
 	}
-
-	// 持久化修改后的数据
-	ipam.dump()
 
 	// 恢复IP
 	releaseIP[3]++
