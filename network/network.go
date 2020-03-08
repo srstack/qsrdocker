@@ -40,6 +40,12 @@ type networkDriver interface {
 // CreateNetwork 创建网络
 func CreateNetwork(driver, subnet, networkID string) error {
 
+	// 初始化 iptables
+	if err := IPtablesInit(); err != nil {
+		return fmt.Errorf("Can't Init iptables error : %v", err)
+	}
+	
+
 	// 讲网段字符串转化为 net.IPNet 对象
 	_, cidr, _ := net.ParseCIDR(subnet)
 
@@ -599,8 +605,8 @@ func delIPTables(bridgeID string, subnet *net.IPNet) error {
 }
 
 // IPtablesInit 初始化容器iptables
-// -nat -A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER
-// -nat -A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j DOCKER
+// -nat -A PREROUTING -m addrtype --dst-type LOCAL -j QSRDOCKER
+// -nat -A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j QSRDOCKER
 func IPtablesInit() error {
 
 	// 创建新链

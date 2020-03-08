@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"qsrdocker/container"
+	"qsrdocker/network"
 	"strings"
 	"text/tabwriter"
 
@@ -19,6 +20,71 @@ var networkCmd = cli.Command{
 	Usage: "qsrdocker network COMMAND",
 	Subcommands: []cli.Command{
 		networkLsCmd,
+		networkCreateCmd,
+		networkRemoveCmd,
+	},
+}
+
+// networkCreateCmd 创建网络
+var networkCreateCmd = cli.Command{
+	Name:  "create",
+	Usage: "create a container network",
+	ArgsUsage: "[NetWork Name]",
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "driver",
+			Usage: "Network Driver",
+			Value: container.DefaultNetworkDriver, // 默认采用 bridge 网络
+		},
+		cli.StringFlag{
+			Name:  "subnet",
+			Usage: "Subnet CIDR",
+		},
+	},
+	Action: func(context *cli.Context) error {
+
+		// 判断是否输入 network Name （Network ID）
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Missing network name")
+		}
+
+		// 获取相关参数
+		networkID := context.Args()[0]
+		networkDriver := context.String("driver")
+		subnetCIDR := context.String("subnet")
+
+		// 若未输入 CIDR
+		if strings.Replace(subnetCIDR, " ", "", -1) == "" {
+			return fmt.Errorf("Missing network CIDR")
+		}
+
+		// 创建目标网络
+		err := network.CreateNetwork(networkDriver, context.String("subnet"), networkID)
+		if err != nil {
+			return fmt.Errorf("Create network %v in driver %v error: %+v", networkID, networkDriver, err)
+		}
+		return nil
+	},
+}
+
+// networkRemoveCmd 删除已创建网络
+var networkRemoveCmd = cli.Command{
+	Name: "remove",
+	Usage: "Remove Network",
+	ArgsUsage: "[NetWork Name]",
+	Action: func(context *cli.Context) error {
+		
+		// 判断是否输入 NetWork Name 
+		if len(context.Args()) < 1 {
+			return fmt.Errorf("Missing network name")
+		}
+
+		// 删除网络
+		err := network.DeleteNetwork(context.Args()[0])
+		if err != nil {
+			return fmt.Errorf("Remove network %v error: %v", context.Args()[0], err)
+		}
+		return nil
 	},
 }
 
@@ -28,6 +94,7 @@ var networkLsCmd = cli.Command{
 	Usage:     "List networks",
 	ArgsUsage: "[]",
 	Action: func(context *cli.Context) error {
+		// 打印出所有 网络
 		listNetwork()
 		return nil
 	},
