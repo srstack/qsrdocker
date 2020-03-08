@@ -1,24 +1,39 @@
 package main
 
 import (
-	"os"
-	"path"
-	"strings"
-	"math/rand"
-	"time"
-	"io/ioutil"
 	"encoding/json"
 	"fmt"
-	"qsrdocker/container"
-	"qsrdocker/cgroups/subsystems"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"path"
 	"qsrdocker/cgroups"
+	"qsrdocker/cgroups/subsystems"
+	"qsrdocker/container"
+	"qsrdocker/network"
+	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 // QsrdockerRun 启动客户端
-func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subsystems.ResourceConfig, 
+func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subsystems.ResourceConfig,
 	imageName, containerName string) {
+
+	// iptables初始化
+	network.IPtablesInit()
+	
+	// 判断默认网络是否已经存在
+	DefaultNetworkFilePath := path.Join(container.NetFileDir, strings.Join([]string{container.DefaultNetworkID, ".json"}, ""))
+	
+	if exists, _ := container.PathExists(DefaultNetworkFilePath); !exists {
+		// 若未创建默认网络, 则创建
+		err := network.CreateNetwork(container.DefaultNetworkDriver, container.DefaultNetworkSubnet, container.DefaultNetworkID)
+		if err != nil {
+			log.Errorf("Create Default network %v error: %v", container.DefaultNetworkID, err)
+		}
+	}
 
 	// 获取容器id
 	containerID := randStringContainerID(10)
@@ -35,18 +50,18 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 	// 1. can't get container Name:ID info cID == ""  err != nil  未通过测试，直接返回
 	// 2. containernames.json is not exist   cID == "" err == nil  通过测试
 	// 3. Name:ID not in config file
-	if strings.Replace(cID, " ", "", -1)  == "" {
+	if strings.Replace(cID, " ", "", -1) == "" {
 		if err != nil && !strings.HasSuffix(err.Error(), "not in config file") {
-			log.Errorf("Container Name status err : %v", err )
+			log.Errorf("Container Name status err : %v", err)
 			return
 		}
 	} else {
 		// 成功获取 cID
 		log.Errorf("Container Name have been used in Container ID : %v", cID)
-		return 
+		return
 	}
 
-	// 获取 imageMateDataInfo 
+	// 获取 imageMateDataInfo
 	// 忽略错误， 存在初始镜像无 runtime 目录的情况
 	imageMateDataInfo, _ := container.GetImageMateDataInfoByName(imageName)
 	if imageMateDataInfo != nil {
@@ -57,16 +72,16 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 		// 去重且去除空白字符
 		envSlice = container.RemoveReplicaSliceString(container.RemoveNullSliceString(envSlice))
 
-		// 若 cmd list 为空则且镜像runtime存在 run cmd 
-		if len(cmdList) ==0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {
-			if strings.ReplaceAll(imageMateDataInfo.Path, " ", "") != ""  {
+		// 若 cmd list 为空则且镜像runtime存在 run cmd
+		if len(cmdList) == 0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {
+			if strings.ReplaceAll(imageMateDataInfo.Path, " ", "") != "" {
 				cmdList = append([]string{imageMateDataInfo.Path}, imageMateDataInfo.Args...)
 			}
 		}
 	}
-	
+
 	// 获取管道通信
-	containerProcess, writeCmdPipe, driverInfo := container.NewParentProcess(tty, containerName ,containerID, imageName, envSlice)
+	containerProcess, writeCmdPipe, driverInfo := container.NewParentProcess(tty, containerName, containerID, imageName, envSlice)
 
 	if containerProcess == nil || writeCmdPipe == nil || driverInfo == nil {
 		log.Errorf("New parent process error")
@@ -83,19 +98,19 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 
 	// 设置 新的 container info
 	containerInfo := &container.ContainerInfo{
-		ID: containerID,  // 容器ID 
-		Name: containerName, // 容器name
+		ID:          containerID,   // 容器ID
+		Name:        containerName, // 容器name
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
 		Status: &container.StatusInfo{
-			Pid: containerProcess.Process.Pid, // 容器进程 pid
+			Pid:       containerProcess.Process.Pid, // 容器进程 pid
 			StartTime: time.Now().Format("2006-01-02 15:04:05"),
 		},
-		Driver: container.Driver,
+		Driver:      container.Driver,
 		GraphDriver: driverInfo,
-		TTy: tty,
-		Image: imageName,
-		Path: cmdList[0],
-		Env: envSlice, // 这里不需要加入 os.env() 仅仅只需要存入 镜像runtime + run -e 输入 
+		TTy:         tty,
+		Image:       imageName,
+		Path:        cmdList[0],
+		Env:         envSlice, // 这里不需要加入 os.env() 仅仅只需要存入 镜像runtime + run -e 输入
 	}
 
 	if len(cmdList) >= 1 {
@@ -128,24 +143,23 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 
 	// 将 cgroup 信息 存入 containerinfo
 	containerInfo.Cgroup = cgroupManager
-		
+
 	// 将用户命令发送给 init container 进程
 	sendInitCommand(cmdList, writeCmdPipe)
 
 	// 完成 ContainerName: ContainerID 的映射关系
 	recordContainerNameInfo(containerName, containerID)
-	
-	// 将 containerInfo 存入 
+
+	// 将 containerInfo 存入
 	container.RecordContainerInfo(containerInfo, containerID)
-	
+
 	if tty {
 		containerProcess.Wait()
 		// 进程退出 exit
 
-
 		// 删除容器信息
 		RemoveContainerNameInfo(containerID)
-		
+
 		// 删除工作目录
 		//if err := container.DeleteWorkSpace(containerID, volumes); err != nil {
 		if err := container.DeleteWorkSpace(containerID); err != nil {
@@ -174,7 +188,7 @@ func readContainerPath(readPipe *os.File) string {
 
 	// 传过来的是字节
 	pathString := string(pathByte)
-	
+
 	return pathString
 }
 
@@ -187,7 +201,6 @@ func sendInitCommand(cmdList []string, writePipe *os.File) {
 	writePipe.WriteString(cmd)
 	writePipe.Close() // 关闭写端
 }
-
 
 // randStringContainerID 随机获取容器id
 func randStringContainerID(n int) string {
@@ -229,18 +242,18 @@ func recordContainerNameInfo(containerName, containerID string) {
 	// 判断映射文件是否存在
 	if exist, _ := container.PathExists(containerNamePath); !exist {
 		nameConfig, err := os.Create(containerNamePath)
-		
+
 		if err != nil {
 			log.Errorf("Create file %s error %v", containerNamePath, err)
-			return 
+			return
 		}
 
 		defer nameConfig.Close()
-		
+
 		// 初始化map
 		containerNameConfig = make(map[string]string)
 
-		// 若 name = ID 
+		// 若 name = ID
 		if containerName == containerID {
 			containerNameConfig[containerName] = containerID
 		} else {
@@ -250,10 +263,10 @@ func recordContainerNameInfo(containerName, containerID string) {
 		}
 
 		// 存入数据
-		containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig," ", "    ")
+		containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig, " ", "    ")
 		if err != nil {
 			log.Errorf("Record container Name:ID error %v", err)
-			return 
+			return
 		}
 
 		containerNameConfigStr := strings.Join([]string{string(containerNameConfigBytes), "\n"}, "")
@@ -262,10 +275,10 @@ func recordContainerNameInfo(containerName, containerID string) {
 			log.Errorf("File write string error %v", err)
 			return
 		}
-		
+
 		log.Debugf("Record container Name success")
 		return
-		
+
 	}
 	// 映射文件存在
 
@@ -273,17 +286,17 @@ func recordContainerNameInfo(containerName, containerID string) {
 	data, err := ioutil.ReadFile(containerNamePath)
 	if err != nil {
 		log.Errorf("Can't open containerNameConfig : %v", containerNamePath)
-		return 
+		return
 	}
 
 	//读取的数据为json格式，需要进行解码
 	err = json.Unmarshal(data, &containerNameConfig)
 	if err != nil {
 		log.Errorf("Can't Unmarshal : %v", containerNamePath)
-		return 
+		return
 	}
 
-	// 若 name = ID 
+	// 若 name = ID
 	if containerName == containerID {
 		containerNameConfig[containerName] = containerID
 	} else {
@@ -293,19 +306,19 @@ func recordContainerNameInfo(containerName, containerID string) {
 	}
 
 	// 存入数据
-	containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig," ", "    ")
+	containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig, " ", "    ")
 	if err != nil {
 		log.Errorf("Record container Name:ID error %v", err)
-		return 
+		return
 	}
-	
+
 	containerNameConfigStr := strings.Join([]string{string(containerNameConfigBytes), "\n"}, "")
-	
+
 	if err = ioutil.WriteFile(containerNamePath, []byte(containerNameConfigStr), 0644); err != nil {
 		log.Errorf("Record container Name:ID fail err : %v", err)
-	}else {
+	} else {
 		log.Debugf("Record container Name:ID success")
-	}		
+	}
 }
 
 // RemoveContainerNameInfo 删除 name : id 映射
@@ -326,29 +339,28 @@ func RemoveContainerNameInfo(containerID string) {
 	} else {
 		containerName = containerInfo.Name
 	}
-	
+
 	// 创建反序列化载体  {"name":"id"}
 	var containerNameConfig map[string]string
 
 	// 映射文件目录
 	containerNamePath := path.Join(container.ContainerDir, container.ContainerNameFile)
-	
-	
+
 	//ReadFile函数会读取文件的全部内容，并将结果以[]byte类型返回
 	data, err := ioutil.ReadFile(containerNamePath)
 	if err != nil {
 		log.Errorf("Can't open containerNameConfig : %v", containerNamePath)
-		return 
+		return
 	}
 
 	//读取的数据为json格式，需要进行解码
 	err = json.Unmarshal(data, &containerNameConfig)
 	if err != nil {
 		log.Errorf("Can't Unmarshal : %v", containerNamePath)
-		return 
+		return
 	}
 
-	// 若 name = ID 
+	// 若 name = ID
 	// 删除该键值对
 	if containerName == containerID {
 		delete(containerNameConfig, containerName)
@@ -361,14 +373,14 @@ func RemoveContainerNameInfo(containerID string) {
 	containerNameConfigBytes, err := json.MarshalIndent(containerNameConfig, " ", "    ")
 	if err != nil {
 		log.Errorf("Remove container Name:ID error %v", err)
-		return 
+		return
 	}
 
 	containerNameConfigStr := strings.Join([]string{string(containerNameConfigBytes), "\n"}, "")
 
 	if err = ioutil.WriteFile(containerNamePath, []byte(containerNameConfigStr), 0644); err != nil {
 		log.Errorf("Remove container Name:ID fail err : %v", err)
-	}else {
+	} else {
 		log.Debugf("Remove container Name:ID success")
-	}		
+	}
 }
