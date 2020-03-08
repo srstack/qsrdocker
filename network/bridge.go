@@ -56,9 +56,9 @@ func (bridge *BridgeNetworkDriver) Delete(network *container.Network) error {
 		return fmt.Errorf("Get Bridge link error %v", err)
 	}
 
-	 err = delIPTables(network.ID, network.IPRange)
-	 
-	 if err != nil {
+	err = delIPTables(network.ID, network.IPRange)
+
+	if err != nil {
 		return fmt.Errorf("Del iptables error %v", err)
 	}
 
@@ -120,7 +120,7 @@ func (bridge *BridgeNetworkDriver) Disconnect(endpoint *container.Endpoint) erro
 	if err != nil {
 		return fmt.Errorf("Del Bridge link %v error %v", endpoint.ID, err)
 	}
-
+	
 	return nil
 }
 

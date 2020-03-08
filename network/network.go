@@ -179,7 +179,7 @@ func Disconnect(networkID string, containerInfo *container.ContainerInfo) error 
 	// 情况容器网络状态
 	containerInfo.NetWorks = &container.Endpoint{}
 
-	return nil
+	return delPortMapping(containerInfo)
 }
 
 // enterContainerNetNs 进入容器 NET NS
