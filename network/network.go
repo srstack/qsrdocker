@@ -19,8 +19,10 @@ import (
 var (
 	// NetworkDriverMap 网络驱动
 	NetworkDriverMap = map[string]networkDriver{
-		"none":   nil, // none 网络
-		"bridge": &BridgeNetworkDriver{},
+		"none":      nil, // none 网络
+		"host":      nil,
+		"container": nil,
+		"bridge":    &BridgeNetworkDriver{},
 	}
 )
 
@@ -40,6 +42,11 @@ type networkDriver interface {
 
 // CreateNetwork 创建网络
 func CreateNetwork(driver, subnet, networkID string) error {
+
+	// 判断 driver 是否存在
+	if _, exists := NetworkDriverMap[strings.ToLower(driver)]; !exists {
+		return fmt.Errorf("Driver %v is not match", driver)
+	}
 
 	// 初始化 iptables
 	if err := IPtablesInit(); err != nil {
@@ -400,7 +407,7 @@ func InitNetwork() {
 	)
 
 	for _, nw := range networks {
-		
+
 		// 调用目标网络驱动的 create 方法恢复网络
 		nw, err := NetworkDriverMap[strings.ToLower(nw.Driver)].Create(nw.IPRangeString, nw.ID)
 

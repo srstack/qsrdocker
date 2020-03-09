@@ -16,7 +16,7 @@ import (
 )
 
 // NewParentProcess 创建 container 的启动进程
-func NewParentProcess(tty bool, containerName, containerID, imageName string, envSlice []string) (*exec.Cmd, *os.File, *DriverInfo) {
+func NewParentProcess(tty bool, containerName, containerID, imageName, networkDriver string, envSlice []string) (*exec.Cmd, *os.File, *DriverInfo) {
 
 	/*
 		1. 第一个参数为初始化 init RunContainerInitProcess
@@ -48,14 +48,8 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 		log.Fatalf("UserNamespace err : %v", err)
 	}
 
-	// 设置 namespace
+	// 设置进程参数
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWIPC | // IPC 调用参数
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWNS | // 史上第一个 Namespace
-			syscall.CLONE_NEWUSER |
-			syscall.CLONE_NEWNET,
 		UidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0, // 映射为root
@@ -71,6 +65,23 @@ func NewParentProcess(tty bool, containerName, containerID, imageName string, en
 			},
 		},
 		GidMappingsEnableSetgroups: false,
+	}
+
+	// 设置namespace
+	if networkDriver == "host" {
+		// host 不需要隔离 netNS
+		cmd.SysProcAttr.Cloneflags = (syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWIPC | // IPC 调用参数
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWNS | // 史上第一个 Namespace
+			syscall.CLONE_NEWUSER)
+	} else {
+		cmd.SysProcAttr.Cloneflags = (syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWIPC | // IPC 调用参数
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWNS | // 史上第一个 Namespace
+			syscall.CLONE_NEWUSER |
+			syscall.CLONE_NEWNET)
 	}
 
 	log.Debugf("Set NameSpace to qsrdocker : %v", containerID)
@@ -355,7 +366,7 @@ func GetContainerInfoByNameID(containerName string) (*ContainerInfo, error) {
 
 	// 检测网络结构体信息
 	checkNetwork(&containerInfo)
-	
+
 	// 检测当前状态
 	containerInfo.Status.StatusCheck()
 
@@ -423,7 +434,7 @@ func RemoveNullSliceString(srcSlice []string) []string {
 
 // checkNetwork 检测网络相关结构体信息
 func checkNetwork(containerInfo *ContainerInfo) {
-	
+
 	if containerInfo.NetWorks == nil {
 		return
 	}
@@ -433,7 +444,7 @@ func checkNetwork(containerInfo *ContainerInfo) {
 
 	if containerInfo.NetWorks.IPAddressStr != "" && containerInfo.NetWorks.IPAddress == nil {
 		containerInfo.NetWorks.IPAddress = net.ParseIP(containerInfo.NetWorks.IPAddressStr)
-	} 
+	}
 
 	if containerInfo.NetWorks.IPAddressStr == "" && containerInfo.NetWorks.IPAddress != nil {
 		containerInfo.NetWorks.IPAddressStr = containerInfo.NetWorks.IPAddress.String()

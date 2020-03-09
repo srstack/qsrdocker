@@ -18,13 +18,14 @@ import (
 )
 
 // QsrdockerRun 启动客户端
-func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subsystems.ResourceConfig,
-	imageName, containerName string) {
+func QsrdockerRun(tty bool, cmdList, volumes, envSlice, portmapping []string, resConfig *subsystems.ResourceConfig,
+	imageName, containerName, networkID, networkDriver, containerNetwork string) {
 
 	// iptables初始化
 	network.IPtablesInit()
 
 	// 网络初始化
+	network.InitNetwork()
 
 	// 获取容器id
 	containerID := randStringContainerID(10)
@@ -72,7 +73,7 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 	}
 
 	// 获取管道通信
-	containerProcess, writeCmdPipe, driverInfo := container.NewParentProcess(tty, containerName, containerID, imageName, envSlice)
+	containerProcess, writeCmdPipe, driverInfo := container.NewParentProcess(tty, containerName, containerID, imageName, networkDriver, envSlice)
 
 	if containerProcess == nil || writeCmdPipe == nil || driverInfo == nil {
 		log.Errorf("New parent process error")
@@ -134,6 +135,14 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 
 	// 将 cgroup 信息 存入 containerinfo
 	containerInfo.Cgroup = cgroupManager
+
+	// 判断网络参数
+	if networkID != "" && networkDriver == "bridge" {
+		// 连接网络
+		if err := network.Connect(networkID, portmapping, containerInfo); err != nil {
+			log.Errorf("Error Connect Network %v, using the host network now", err)
+		}
+	}
 
 	// 将用户命令发送给 init container 进程
 	sendInitCommand(cmdList, writeCmdPipe)
