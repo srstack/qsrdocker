@@ -36,6 +36,39 @@ var ipAllocator = &IPAM{
 // load  反序列化 subnet.json
 func (ipam *IPAM) load() error {
 
+	// 判断 subnet 配置文件是否粗存在
+	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); !exists {
+
+		// 不存在直接返回 空
+		// 目前无 subnet 信息
+		return nil
+	}
+
+	// 打开文件并反序列化
+	subnetJSONBytes, err := ioutil.ReadFile(ipam.SubnetAllocatorPath)
+
+	// 打开文件失败 直接返回错误
+	if err != nil {
+		os.Remove(ipam.SubnetLockPath)
+		return err
+	}
+	log.Debugf("Get config file %s", ipam.SubnetAllocatorPath)
+
+	// 反序列化到 ipam.subnets
+	err = json.Unmarshal(subnetJSONBytes, ipam.Subnets)
+	if err != nil {
+		log.Errorf("Unmarshal Subnet info error %v", err)
+		os.Remove(ipam.SubnetLockPath)
+		return err
+	}
+
+	log.Debugf("Load Subnet info success")
+
+	return nil
+}
+
+// lock 添加文件锁
+func (ipam *IPAM) lock() error {
 	// 判断文件锁是否存在
 
 	// 多次尝试
@@ -67,46 +100,26 @@ func (ipam *IPAM) load() error {
 		time.Sleep(1 * time.Second)
 	}
 
-	// 判断 subnet 配置文件是否粗存在
-	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
+	return nil
 
-		// 不存在直接返回 空
-		// 目前无 subnet 信息
-		return nil
+}
+
+// unlock 删除文件锁
+func (ipam *IPAM) unlock() error {
+
+	if exists, _ := container.PathExists(ipam.SubnetLockPath); !exists {
+		return fmt.Errorf("Get file lock error, %v is not exists", ipam.SubnetLockPath)
 	}
 
-	// 打开文件并反序列化
-	subnetJSONBytes, err := ioutil.ReadFile(ipam.SubnetAllocatorPath)
-
-	// 打开文件失败 直接返回错误
-	if err != nil {
-		os.Remove(ipam.SubnetLockPath)
-		return err
+	if err := os.Remove(ipam.SubnetLockPath); err != nil {
+		log.Errorf("Remove file lock fail error %v", err)
 	}
-	log.Debugf("Get config file %s", ipam.SubnetAllocatorPath)
-
-	// 反序列化到 ipam.subnets
-	err = json.Unmarshal(subnetJSONBytes, ipam.Subnets)
-	if err != nil {
-		log.Errorf("Unmarshal Subnet info error %v", err)
-		os.Remove(ipam.SubnetLockPath)
-		return err
-	}
-
-	log.Debugf("Load Subnet info success")
 
 	return nil
 }
 
 // dump 序列化 subnet.json
 func (ipam *IPAM) dump() error {
-
-	// 删除锁文件
-	defer func (){
-		if err := os.Remove(ipam.SubnetLockPath); err != nil {
-			log.Errorf("Remove file lock fail error %v", err)
-		}	
-	}()
 
 	// 判断 NetIPadminDir 是否存在
 	// 不存在则创建
@@ -147,14 +160,20 @@ func (ipam *IPAM) dump() error {
 // Create 创建新的网段
 func (ipam *IPAM) Create(subnet *net.IPNet) (err error) {
 
-	// 持久化配置
-	defer ipam.dump()
-
 	// 存放网段中地址分配信息的 字符串切片
 	ipam.Subnets = &map[string]string{}
 
 	// 从文件中加载已经分配的网段信息
 	// 存在配置文件才 load
+
+	// 增加文件锁
+	if err = ipam.lock(); err != nil{
+		return
+	}
+
+	// 删除文件锁
+	defer ipam.unlock()
+
 	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
 		err = ipam.load()
 		if err != nil {
@@ -202,23 +221,31 @@ func (ipam *IPAM) Create(subnet *net.IPNet) (err error) {
 
 	log.Debugf("Create SubNet %v success ", subnet.String())
 
+	// 持久化配置
+	defer ipam.dump()
+
 	return
 }
 
 // Allocate 在网段中分配一个可用的 IP 地址
 func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 
-	// 持久化配置
-	defer ipam.dump()
-
 	// 存放网段中地址分配信息的 字符串切片
 	ipam.Subnets = &map[string]string{}
+
+	// 增加文件锁
+	if err = ipam.lock(); err != nil{
+		return
+	}
+
+	// 删除文件锁
+	defer ipam.unlock()
 
 	// 从文件中加载已经分配的网段信息
 	// 存在配置文件才 load
 	if exists, _ := container.PathExists(ipam.SubnetAllocatorPath); exists {
 		err = ipam.load()
-		if err != nil { 
+		if err != nil {
 			log.Errorf("Dump SubNet info error %v", err)
 			// 有名返回
 			return
@@ -266,6 +293,9 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 
 	log.Debugf("Allocate IP  %v success in %v", ip.String(), subnet.String())
 
+	// 持久化
+	ipam.dump()
+
 	// 有名返回
 	return
 }
@@ -273,11 +303,17 @@ func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
 // Release 使用图位法释放IP地址
 func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 
-	// 持久化配置
-	defer ipam.dump()
 
 	// 初始化反序列化结构
 	ipam.Subnets = &map[string]string{}
+
+	// 增加文件锁
+	if err := ipam.lock(); err != nil{
+		return err
+	}
+
+	// 删除文件锁
+	defer ipam.unlock()
 
 	// 获取 ipam 数据
 	err := ipam.load()
@@ -317,8 +353,13 @@ func (ipam *IPAM) Release(subnet *net.IPNet, ip *net.IP) error {
 		(*ipam.Subnets)[subnet.String()] = string(ipAllocs)
 	}
 
+	// 持久化
+	ipam.dump()
+
 	// 恢复IP
 	releaseIP[3]++
+
+	log.Debugf("Release IP %v success", releaseIP.String())
 
 	return nil
 }

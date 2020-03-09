@@ -12,13 +12,13 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreate2(t *testing.T) {
-	_, ipnet, _ := net.ParseCIDR("192.168.0.8/24")
+	_, ipnet, _ := net.ParseCIDR("192.168.1.8/24")
 	err := ipAllocator.Create(ipnet)
 	t.Logf("create network : %v  %v", ipnet.String(), err)
 }
 
 func TestAllocate(t *testing.T) {
-	_, ipnet, _ := net.ParseCIDR("192.168.0.0/24")
+	_, ipnet, _ := net.ParseCIDR("192.168.1.0/24")
 	ip, _ := ipAllocator.Allocate(ipnet)
 	t.Logf("alloc ip: %v", ip.String())
 }

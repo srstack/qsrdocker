@@ -428,6 +428,9 @@ func checkNetwork(containerInfo *ContainerInfo) {
 		return
 	}
 
+	// 各种重复性的 string 与 Parse
+	// 真的丑....
+
 	if containerInfo.NetWorks.IPAddressStr != "" && containerInfo.NetWorks.IPAddress == nil {
 		containerInfo.NetWorks.IPAddress = net.ParseIP(containerInfo.NetWorks.IPAddressStr)
 	} 

@@ -31,7 +31,7 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 		// 若未创建默认网络, 则创建
 		err := network.CreateNetwork(container.DefaultNetworkDriver, container.DefaultNetworkSubnet, container.DefaultNetworkID)
 		if err != nil {
-			log.Errorf("Create Default network %v error: %v", container.DefaultNetworkID, err)
+			log.Errorf("Create default network %v error: %v", container.DefaultNetworkID, err)
 		}
 	}
 
@@ -110,7 +110,7 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 		TTy:         tty,
 		Image:       imageName,
 		Path:        cmdList[0],
-		Env:         envSlice, // 这里不需要加入 os.env() 仅仅只需要存入 镜像runtime + run -e 输入
+		Env:         envSlice, // 这里不需要加入 os.env() 仅仅只需要存入 -e 的输入
 	}
 
 	if len(cmdList) >= 1 {

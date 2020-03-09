@@ -55,10 +55,14 @@ func CreateNetwork(driver, subnet, networkID string) error {
 	// 讲网段字符串转化为 net.IPNet 对象
 	_, cidr, _ := net.ParseCIDR(subnet)
 
+	log.Debugf("Get CIDR %v", cidr.String())
+
 	// 创建目标网段
 	if err := ipAllocator.Create(cidr); err != nil {
 		return fmt.Errorf("Create Network error %v", err)
 	}
+
+	log.Debugf("Create network cidr %v  success", cidr.String())
 
 	// 从 IP manager 获取 网关IP
 	// 目标网段的第一个 IP
@@ -66,6 +70,8 @@ func CreateNetwork(driver, subnet, networkID string) error {
 	if err != nil {
 		return err
 	}
+
+	log.Debugf("Get geta way ip %v in %v", gwIP.String(), cidr.String())
 
 	// 讲网关IP设置为 网段 默认 IP  cidr.IP
 	cidr.IP = gwIP
