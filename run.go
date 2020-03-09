@@ -23,17 +23,8 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice []string, resConfig *subs
 
 	// iptables初始化
 	network.IPtablesInit()
-	
-	// 判断默认网络是否已经存在
-	DefaultNetworkFilePath := path.Join(container.NetFileDir, strings.Join([]string{container.DefaultNetworkID, ".json"}, ""))
-	
-	if exists, _ := container.PathExists(DefaultNetworkFilePath); !exists {
-		// 若未创建默认网络, 则创建
-		err := network.CreateNetwork(container.DefaultNetworkDriver, container.DefaultNetworkSubnet, container.DefaultNetworkID)
-		if err != nil {
-			log.Errorf("Create default network %v error: %v", container.DefaultNetworkID, err)
-		}
-	}
+
+	// 网络初始化
 
 	// 获取容器id
 	containerID := randStringContainerID(10)

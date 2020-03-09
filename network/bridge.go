@@ -62,6 +62,8 @@ func (bridge *BridgeNetworkDriver) Delete(network *container.Network) error {
 		return fmt.Errorf("Del iptables error %v", err)
 	}
 
+	log.Debugf("Del iptables success")
+
 	// 删除目标 link
 	return netlink.LinkDel(bridgeLink)
 }
