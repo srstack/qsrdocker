@@ -71,7 +71,7 @@ func CreateNetwork(driver, subnet, networkID string) error {
 		return err
 	}
 
-	log.Debugf("Get geta way ip %v in %v", gwIP.String(), cidr.String())
+	log.Debugf("Get gate way ip %v in %v", gwIP.String(), cidr.String())
 
 	// 讲网关IP设置为 网段 默认 IP  cidr.IP
 	cidr.IP = gwIP
@@ -481,14 +481,18 @@ func setInterfaceIP(bridgeID string, rawIP string) error {
 
 	ipNet, err := netlink.ParseIPNet(rawIP)
 	if err != nil {
-		return err
+		return fmt.Errorf("Get ipNet form rawIP error: %v", err)
 	}
 
 	// 设置IP
 	addr := &netlink.Addr{IPNet: ipNet, Peer: ipNet, Label: "", Flags: 0, Scope: 0, Broadcast: nil}
 
 	// 在 host 主机上执行 ip add
-	return netlink.AddrAdd(link, addr)
+	if err := netlink.AddrAdd(link, addr); err != nil {
+		return fmt.Errorf("Set ip add error: %v", err)
+	}
+
+	return nil
 }
 
 // setupIPTables 设置SNAT
@@ -545,7 +549,7 @@ func setIPTables(bridgeID string, subnet *net.IPNet) error {
 	}
 
 	// -t nat -A DOCKER -i docker0 -j RETURN
-	setNatCmd := fmt.Sprintf("-t nat -A QSRDOCKER -i %v-j RETURN", bridgeID)
+	setNatCmd := fmt.Sprintf("-t nat -A QSRDOCKER -i %v -j RETURN", bridgeID)
 	// 直接运行 cmd 命令
 	_, err = exec.Command("iptables", strings.Split(setNatCmd, " ")...).CombinedOutput()
 
@@ -625,31 +629,34 @@ func IPtablesInit() error {
 	newChainCmd := "-N QSRDOCKER"
 
 	// 直接运行 cmd 命令
-	_, err := exec.Command("iptables", strings.Split(newChainCmd, " ")...).CombinedOutput()
+	errinfo, err := exec.Command("iptables", strings.Split(newChainCmd, " ")...).CombinedOutput()
 
 	// 报错不为空
 	if err != nil {
 		// 报错信息为  Chain already exists 表示已经创建过 直接返回
-		if strings.Contains(err.Error(), "Chain already exists") {
+		if strings.Contains(string(errinfo), "Chain already exists") {
 			return nil
 		}
 		return err
 	}
+
+	log.Debugf("Set QSRDOCKER Chain success")
 
 	// 创建新链
 	newNatChainCmd := "-t nat -N QSRDOCKER"
 
 	// 直接运行 cmd 命令
-	_, err = exec.Command("iptables", strings.Split(newNatChainCmd, " ")...).CombinedOutput()
+	errinfo, err = exec.Command("iptables", strings.Split(newNatChainCmd, " ")...).CombinedOutput()
 
 	// 报错不为空
 	if err != nil {
 		// 报错信息为  Chain already exists 表示已经创建过 直接返回
-		if strings.Contains(err.Error(), "Chain already exists") {
+		if strings.Contains(string(errinfo), "Chain already exists") {
 			return nil
 		}
 		return err
 	}
+	log.Debugf("Set nat QSRDOCKER Chain success")
 
 	// 设置 Prerouting 规则
 	setPreroutingCmd := "-t nat -A PREROUTING -m addrtype --dst-type LOCAL -j QSRDOCKER"
@@ -662,6 +669,8 @@ func IPtablesInit() error {
 		return err
 	}
 
+	log.Debugf("Set PREROUTING in QSRDOCKER Chain success")
+
 	// 设置output规则
 	setOutputCmd := "-t nat -A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j QSRDOCKER"
 
@@ -672,6 +681,8 @@ func IPtablesInit() error {
 	if err != nil {
 		return err
 	}
+
+	log.Debugf("Set OUTPUT in QSRDOCKER Chain success")
 
 	log.Debug("Create New iptables Chain QSRDOCKER success")
 

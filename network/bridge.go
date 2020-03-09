@@ -38,7 +38,7 @@ func (bridge *BridgeNetworkDriver) Create(subnet string, networkID string) (*con
 	// 初始化 bridge 网络
 	err := bridge.initBridge(nw)
 	if err != nil {
-		log.Errorf("Create Bridge Network %v error %v", networkID, err)
+		return nil, fmt.Errorf("Create Bridge Network %v error %v", networkID, err)
 	}
 
 	log.Debugf("Create Bridge Network %v success", networkID)
@@ -120,7 +120,7 @@ func (bridge *BridgeNetworkDriver) Disconnect(endpoint *container.Endpoint) erro
 	if err != nil {
 		return fmt.Errorf("Del Bridge link %v error %v", endpoint.ID, err)
 	}
-	
+
 	return nil
 }
 
@@ -137,23 +137,31 @@ func (bridge *BridgeNetworkDriver) initBridge(network *container.Network) error 
 
 	// 设置 网关 网段 IP 信息
 	gatewayIP := *network.IPRange
-	gatewayIP.IP = net.ParseIP(network.Driver)
+	gatewayIP.IP = net.ParseIP(network.GateWayIP)
+
+	log.Debug("Get gate way ip %v", gatewayIP.IP.String())
 
 	// 在 host os 上  ip set [interface]
 	if err := setInterfaceIP(bridgeID, gatewayIP.String()); err != nil {
-		return fmt.Errorf("Set IP Interface %s on Bridge Net %s error %v", gatewayIP.String(), bridgeID, err)
+		return fmt.Errorf("Set IP Interface %s on Bridge Net %s error %v", gatewayIP.IP.String(), bridgeID, err)
 	}
+
+	log.Debugf("Set ip add success with %v", bridgeID)
 
 	// 在 host os 上 set up Bridge 接口
 	if err := setInterfaceUP(bridgeID); err != nil {
 		return fmt.Errorf("Set Bridge up %s error: %v", bridgeID, err)
 	}
 
+	log.Debugf("Set ip up success with %v", bridgeID)
+
 	// 创建 snat
 	// 即 所有从 Bridge 出方向流量的 ip source 都设置为 bridge 网络
 	if err := setIPTables(bridgeID, network.IPRange); err != nil {
 		return fmt.Errorf("Set iptables for Bridge Net %s error %v", bridgeID, err)
 	}
+
+	log.Debugf("Set iptables success with %v", bridgeID)
 
 	return nil
 }
