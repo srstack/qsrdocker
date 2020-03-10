@@ -38,30 +38,30 @@ func Init(subsystem, subsystemFile string) error {
 	}
 
 	// 判断是否初始化完成
-	InitConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
+	InitConfByte, err := ioutil.ReadFile(path.Join(cgroupRoot, subsystemFile))
 	if err != nil {
 		log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
 	}
 
-	InitConf := strings.ReplaceAll(string(InitConfByte)," ", "")
+	InitConf := strings.ReplaceAll(string(InitConfByte), " ", "")
 
 	// 已完成初始化后，直接返回
-	if InitConf != "" {
-		log.Debugf("Initialization completed")
-		return nil 
+	if InitConf == "\n" {
+		log.Debugf("Initialization completed %v with cpuset in  %v", InitConf, path.Join(cgroupRoot, subsystemFile))
+		return nil
 	}
 
 	// 父节点设置
-	ConfByte, err := ioutil.ReadFile(path.Join(cgroupRoot, subsystemFile))
+	ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))
 	if err != nil {
 		log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
 	}
 
-	Conf := strings.ReplaceAll(string(ConfByte)," ", "")
+	Conf := strings.ReplaceAll(string(ConfByte), " ", "")
 
 	// 父节点无配置
 	if Conf == "" {
-		return nil 
+		return nil
 	}
 
 	// 写入初始化状态  /cupset.cpus
@@ -72,7 +72,7 @@ func Init(subsystem, subsystemFile string) error {
 
 	// 初始化 cpus 成功
 	log.Debugf("Init %v-%s in %v: %v", subsystem, subsystem, subsystemFile, Conf)
-	
+
 	return nil
 }
 
@@ -83,16 +83,16 @@ func Set(cgroupPath, subsystem, subsystemFile, cgroupConf string) error {
 	subsysCgroupPath, err := GetCgroupPath(subsystem, cgroupPath, true)
 	if err == nil {
 		if strings.Replace(cgroupConf, " ", "", -1) == "" {
-			
+
 			// 父节点设置
 			cgroupConfByte, err := ioutil.ReadFile(path.Join(path.Dir(subsysCgroupPath), subsystemFile))
 			if err != nil {
 				log.Errorf("Set  %s-%s fail %v, Can't Get parent info", subsystem, subsystemFile, err)
 			}
-			
-			cgroupConf = strings.ReplaceAll(string(cgroupConfByte)," ", "")
 
-			// 若父节点无配置，直接返回 
+			cgroupConf = strings.ReplaceAll(string(cgroupConfByte), " ", "")
+
+			// 若父节点无配置，直接返回
 			if cgroupConf == "" {
 				return nil
 			}
@@ -104,8 +104,8 @@ func Set(cgroupPath, subsystem, subsystemFile, cgroupConf string) error {
 			// 写入文件失败则返回 error set cgroup memory fail
 			return fmt.Errorf("cgroup %s-%s fail %v", subsystem, subsystemFile, err)
 		}
-		
-		log.Debugf("Set cgroup %v-%s in %v: %v", subsystem, subsystemFile, subsystemFile, cgroupConf)	
+
+		log.Debugf("Set cgroup %v-%s in %v: %v", subsystem, subsystemFile, subsystemFile, cgroupConf)
 		// resConfig.xxxx == "" 不设置限制，则直接返回空
 		return nil
 	}
@@ -123,10 +123,10 @@ func Apply(cgroupPath, subsystem, subsystemFile string, pid int) error {
 			// 将进程PID加入到对应目录下的 task 文件中
 			// strconv.Itoa(pid) int to string
 			return fmt.Errorf("set cgroup proc fail %v", err)
-		} 
+		}
 		log.Debugf("Apply cgroup %v-%s successful. curr pid: %d", subsystem, subsystemFile, pid)
 		return nil
-	} 
+	}
 	// 无法获取相对应 cgroup 路径
 	return fmt.Errorf("get cgroup %s error: %v", cgroupPath, err)
 }
@@ -138,11 +138,11 @@ func Remove(cgroupPath, subsystem, subsystemFile string) error {
 	if err != nil {
 		return nil
 	}
-	
+
 	if err = os.RemoveAll(subsysCgroupPath); err != nil {
 		return err
 	}
-	
+
 	log.Debugf("Remove cgroup %v-%s", subsystem, subsysCgroupPath)
 	return nil
 }
