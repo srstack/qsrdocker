@@ -408,6 +408,14 @@ func InitNetwork() {
 
 	for _, nw := range networks {
 
+		// 判断网络是否已正常
+		_, err := net.InterfaceByName(nw.ID)
+
+		// no such network interface 报错，才是表明未创建目标 bridge 网络
+		if err == nil || !strings.Contains(err.Error(), "no such network interface") {
+			continue
+		}
+
 		// 调用目标网络驱动的 create 方法恢复网络
 		nw, err := NetworkDriverMap[strings.ToLower(nw.Driver)].Create(nw.IPRangeString, nw.ID)
 
