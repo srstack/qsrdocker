@@ -72,8 +72,8 @@ func stopContainer(containerName string, sleepTime int) {
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 
-	if containerInfo.Networks.Network.Driver == "dirdge" {
-		network.Disconnect(containerInfo.Networks.Network.ID, containerInfo)
+	if containerInfo.NetWorks.Network.Driver == "bridge" {
+		network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
 	}
 
 	// 调用系统调用发送信号 SIGTERM
