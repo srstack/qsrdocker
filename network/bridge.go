@@ -83,7 +83,8 @@ func (bridge *BridgeNetworkDriver) Connect(network *container.Network, endpoint 
 
 	// 接口名 去 endpint 的前五位
 	// 即 container ID 的前五位
-	bridgeLinkAttr.Name = endpoint.ID[:5]
+
+	bridgeLinkAttr.Name = strings.Join([]string{"qsrveth", endpoint.ID[:5]}, "")
 
 	// 设置 veth配置的 master 属性，指向目标 bridge 网络
 	// 即将另一端挂在 linux bridge 网络上

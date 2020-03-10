@@ -11,21 +11,21 @@ import (
 // 路径相关信息
 var (
 	// RootDir qsrdocker 相关运行文件保存根路径
-	RootDir 			string = "/var/qsrdocker"
+	RootDir string = "/var/qsrdocker"
 	// ImageDir 镜像文件存放路径
-	ImageDir 			string = path.Join(RootDir, "image")
+	ImageDir string = path.Join(RootDir, "image")
 	// MountDir imageName : imageID 的映射, ImageInfoFile 将映射写在文件中
-	MountDir 			string = path.Join(RootDir, "overlay2")
+	MountDir string = path.Join(RootDir, "overlay2")
 	// ContainerDir 容器信息存放
-	ContainerDir 		string = path.Join(RootDir, "container")
+	ContainerDir string = path.Join(RootDir, "container")
 	// ImageRuntimeDir  镜像 runtime 相关数据
-	ImageMateDateDir 	string = path.Join(ImageDir, "matedata")
+	ImageMateDateDir string = path.Join(ImageDir, "matedata")
 	// NetworkDir 容器网络目录
-	NetWorkDir 			string = path.Join(RootDir, "network")
+	NetWorkDir string = path.Join(RootDir, "network")
 	// NetFileDir
-	NetFileDir 			string = path.Join(NetWorkDir, "netfile")
+	NetFileDir string = path.Join(NetWorkDir, "netfile")
 	// IPFileDir
-	NetIPadminDir 		string = path.Join(NetWorkDir, "ipam")
+	NetIPadminDir string = path.Join(NetWorkDir, "ipam")
 )
 
 // 文件相关信息
@@ -44,9 +44,9 @@ var (
 	DefaultNetworkSubnet string = "172.20.0.0/24"
 	DefaultNetworkID     string = "qsrdocker0"
 	// 默认引擎为 overlay2
-	Driver 				 string = "overlay2"
+	Driver string = "overlay2"
 	// 默认 bind mount 方式
-	MountType 			 string = "bind"
+	MountType string = "bind"
 )
 
 // ContainerInfo 容器基本信息描述

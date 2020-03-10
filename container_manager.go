@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"qsrdocker/container"
+	"qsrdocker/network"
 	"strconv"
 	"strings"
 	"syscall"
@@ -69,6 +70,10 @@ func stopContainer(containerName string, sleepTime int) {
 	if sleepTime > 0 {
 		// 睡眠 sleepTime 秒后
 		time.Sleep(time.Duration(sleepTime) * time.Second)
+	}
+
+	if containerInfo.Networks.Network.Driver == "dirdge" {
+		network.Disconnect(containerInfo.Networks.Network.ID, containerInfo)
 	}
 
 	// 调用系统调用发送信号 SIGTERM

@@ -71,7 +71,7 @@ func Init(subsystem, subsystemFile string) error {
 	}
 
 	// 初始化 cpus 成功
-	log.Debugf("Init %v-%s in %v: %v", subsystem, subsystem, subsystemFile, Conf)
+	log.Debugf("Init %v-%s in %v: %v", subsystem, subsystemFile, subsystemFile, Conf)
 
 	return nil
 }
