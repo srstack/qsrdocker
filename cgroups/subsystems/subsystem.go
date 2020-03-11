@@ -37,19 +37,19 @@ func Init(subsystem, subsystemFile string) error {
 		return nil
 	}
 
-	// 判断是否初始化完成
-	InitConfByte, err := ioutil.ReadFile(path.Join(cgroupRoot, subsystemFile))
-	if err != nil {
-		log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
-	}
+	// // 判断是否初始化完成
+	// InitConfByte, err := ioutil.ReadFile(path.Join(cgroupRoot, subsystemFile))
+	// if err != nil {
+	// 	log.Errorf("Init %s-%s fail %v, Can't Get parent info", subsystem, subsystem, err)
+	// }
 
-	InitConf := strings.ReplaceAll(string(InitConfByte), " ", "")
+	// InitConf := strings.ReplaceAll(string(InitConfByte), " ", "")
 
-	// 已完成初始化后，直接返回
-	if InitConf == "\n" {
-		log.Debugf("Initialization completed %v with cpuset in  %v", InitConf, path.Join(cgroupRoot, subsystemFile))
-		return nil
-	}
+	// // 已完成初始化后，直接返回
+	// if InitConf == "\n" {
+	// 	log.Debugf("Initialization completed %v with cpuset in  %v", InitConf, path.Join(cgroupRoot, subsystemFile))
+	// 	return nil
+	// }
 
 	// 父节点设置
 	ConfByte, err := ioutil.ReadFile(path.Join(path.Dir(cgroupRoot), subsystemFile))

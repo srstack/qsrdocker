@@ -73,7 +73,10 @@ func stopContainer(containerName string, sleepTime int) {
 	}
 
 	if containerInfo.NetWorks.Network.Driver == "bridge" {
-		network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
+		err := network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
+		if err != nil {
+			log.Errorf("Stop container %v network error %v", containerName, err)
+		}
 	}
 
 	// 调用系统调用发送信号 SIGTERM
@@ -210,6 +213,14 @@ func startContainer(containerName string) {
 	containerInfo.Cgroup.Apply(containerInfo.Status.Pid)
 
 	log.Debugf("Create cgroup config: %+v", containerInfo.Cgroup.Resource)
+
+	// 启动容器网络
+	if containerInfo.NetWorks.Network.Driver == "bridge" {
+		err := network.Connect(containerInfo.NetWorks.Network.ID, nil, containerInfo)
+		if err != nil {
+			log.Errorf("Start container %v network error %v", containerName, err)
+		}
+	}
 
 	// 将用户命令发送给 init container 进程
 	sendInitCommand(append([]string{containerInfo.Path}, containerInfo.Args...), writeCmdPipe)

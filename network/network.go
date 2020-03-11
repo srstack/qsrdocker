@@ -138,45 +138,53 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 		return err
 	}
 
-	// 解析 Ports
-	// hostPort:containerPort、ip:hostPort:containerPort
-	// [80:80, 127.1.2.3:3306:3306]
-	ports := map[string][]*container.Port{}
-
-	for _, portPair := range portSlice {
-		// 按照 ： 拆分
-		portPairSlice := strings.Split(portPair, ":")
-		portPairSlice = container.RemoveNullSliceString(portPairSlice)
-		port := &container.Port{}
-
-		// 根据长度判断 host ip
-		// 80:80
-		if len(portPairSlice) == 2 {
-			port.HostIP = "0.0.0.0"
-			port.HostPort = portPairSlice[0]
-			if !strings.Contains(portPairSlice[1], "/") {
-				portPairSlice[1] = fmt.Sprintf("%s/tcp", portPairSlice[1])
-			}
-			ports[portPairSlice[1]] = append(ports[portPairSlice[1]], port)
-		}
-
-		// 127.1.2.3:3306:3306
-		if len(portPairSlice) == 3 {
-			port.HostIP = portPairSlice[0]
-			port.HostPort = portPairSlice[1]
-			if !strings.Contains(portPairSlice[2], "/") {
-				portPairSlice[2] = fmt.Sprintf("%s/tcp", portPairSlice[2])
-			}
-			ports[portPairSlice[2]] = append(ports[portPairSlice[2]], port)
-		}
-	}
-
 	// 创建网络端点
 	ep := &container.Endpoint{
 		ID:        fmt.Sprintf("%s-%s", containerInfo.ID, networkID),
 		IPAddress: ip,
 		Network:   nw,
-		Ports:     ports,
+	}
+
+	// 解析 Ports
+	// hostPort:containerPort、ip:hostPort:containerPort
+	// [80:80, 127.1.2.3:3306:3306]
+	// portSlice 存在可能是 start 操作
+	if portSlice != nil {
+		ports := map[string][]*container.Port{}
+
+		for _, portPair := range portSlice {
+			// 按照 ： 拆分
+			portPairSlice := strings.Split(portPair, ":")
+			portPairSlice = container.RemoveNullSliceString(portPairSlice)
+			port := &container.Port{}
+
+			// 根据长度判断 host ip
+			// 80:80
+			if len(portPairSlice) == 2 {
+				port.HostIP = "0.0.0.0"
+				port.HostPort = portPairSlice[0]
+				if !strings.Contains(portPairSlice[1], "/") {
+					portPairSlice[1] = fmt.Sprintf("%s/tcp", portPairSlice[1])
+				}
+				ports[portPairSlice[1]] = append(ports[portPairSlice[1]], port)
+			}
+
+			// 127.1.2.3:3306:3306
+			if len(portPairSlice) == 3 {
+				port.HostIP = portPairSlice[0]
+				port.HostPort = portPairSlice[1]
+				if !strings.Contains(portPairSlice[2], "/") {
+					portPairSlice[2] = fmt.Sprintf("%s/tcp", portPairSlice[2])
+				}
+				ports[portPairSlice[2]] = append(ports[portPairSlice[2]], port)
+			}
+		}
+
+		// 端口映射 map
+		ep.Ports = ports
+	} else {
+		// 若是 start 操作 ，则继承已经解析好的 ports
+		ep.Ports = containerInfo.NetWorks.Ports
 	}
 
 	containerInfo.NetWorks = ep
@@ -202,9 +210,14 @@ func Disconnect(networkID string, containerInfo *container.ContainerInfo) error 
 	if err := NetworkDriverMap[strings.ToLower(containerInfo.NetWorks.Network.Driver)].Disconnect(containerInfo.NetWorks); err != nil {
 		return err
 	}
-
+	// 释放 ip
+	if err := ipAllocator.Release(containerInfo.NetWorks.Network.IPRange, &containerInfo.NetWorks.IPAddress); err != nil {
+		return fmt.Errorf("Remove Network %v ip %v error: %v", networkID, containerInfo.NetWorks.IPAddressStr, err)
+	}
+	log.Debugf("Release ip %v success", containerInfo.NetWorks.IPAddressStr)
 	// 情况容器网络状态
-	containerInfo.NetWorks = &container.Endpoint{}
+	// 暂时不请客 容器 网络状态
+	// containerInfo.NetWorks = &container.Endpoint{}
 
 	return delPortMapping(containerInfo)
 }
@@ -293,7 +306,7 @@ func configEndpointIPAddressAndRoute(containerInfo *container.ContainerInfo) err
 	_, cidr, _ := net.ParseCIDR("0.0.0.0/0")
 	defaultRoute := &netlink.Route{
 		LinkIndex: vethPeerLink.Attrs().Index,
-		Gw:        containerInfo.NetWorks.IPAddress,
+		Gw:        net.ParseIP(containerInfo.NetWorks.Network.GateWayIP),
 		Dst:       cidr,
 	}
 
