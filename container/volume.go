@@ -570,6 +570,33 @@ func GetImageLower(imageNameTag string) string {
 	return imageNameTag
 }
 
+// AddHostConfig
+func AddHostConfig(containerID string, volumes []string) []string {
+
+	// 容器 目录
+	containerDir := path.Join(ContainerDir, containerID)
+
+	// hosts 文件
+	hostFile := path.Join(containerDir, "hosts")
+	if exists, _ := PathExists(hostFile); exists {
+		volumes = append(volumes, strings.Join([]string{hostFile,":","/etc/hosts"},""))
+	}
+
+	// hostname 文件
+	hostnameFile := path.Join(containerDir, "hostname")
+	if exists, _ := PathExists(hostnameFile); exists {
+		volumes = append(volumes, strings.Join([]string{hostnameFile,":","/etc/hostname"},""))
+	}
+
+	// resolv.conf文件
+	resolvFile := path.Join(containerDir, "resolv.conf")
+	if exists, _ := PathExists(resolvFile); exists {
+		volumes = append(volumes, strings.Join([]string{resolvFile,":","/etc/resolv.conf"},""))
+	}
+
+	return volumes
+}
+
 // CheckPath 检测路径状态
 func CheckPath(path string, isFile bool) {
 	exist, err := PathExists(path)

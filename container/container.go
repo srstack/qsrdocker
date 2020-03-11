@@ -46,7 +46,8 @@ var (
 	// 默认引擎为 overlay2
 	Driver string = "overlay2"
 	// 默认 bind mount 方式
-	MountType string = "bind"
+	MountType    string = "bind"
+	DefaultHosts string = "127.0.0.1 localhost\n::1 localhost ip6-localhost ip6-loopback\nfe00::0 ip6-localnet\nff00::0 ip6-mcastprefix\nff02::1 ip6-allnodes\nff02::2 ip6-allrouters\n"
 )
 
 // ContainerInfo 容器基本信息描述

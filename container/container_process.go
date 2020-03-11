@@ -273,9 +273,12 @@ func RecordContainerInfo(containerInfo *ContainerInfo, containerID string) error
 
 	// 创建 /[containerDir]/[containerID]/ 目录
 	containerDir := path.Join(ContainerDir, containerID)
-	if err := os.MkdirAll(containerDir, 0622); err != nil {
-		log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
-		return err
+
+	if exists, _ := PathExists(containerDir); !exists {
+		if err := os.MkdirAll(containerDir, 0622); err != nil {
+			log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
+			return err
+		}
 	}
 
 	// 创建 /[containerDir]/[containerID]/config.json
@@ -401,6 +404,49 @@ func GetImageMateDataInfoByName(imageName string) (*ImageMateDataInfo, error) {
 	}
 
 	return &imageMateDataInfo, nil
+}
+
+// InitContainerHostConfig 初始化 hosts hostname resolv.conf 文件
+func InitContainerHostConfig(containerID string) {
+	// 创建 /[containerDir]/[containerID]/ 目录
+	containerDir := path.Join(ContainerDir, containerID)
+
+	if exists, _ := PathExists(containerDir); !exists {
+		if err := os.MkdirAll(containerDir, 0622); err != nil {
+			log.Errorf("Mkdir container Dir %s fail error %v", containerDir, err)
+		}
+	}
+
+	// 完成host文件
+	hostsFilePath := path.Join(containerDir, "hosts")
+
+	if err := ioutil.WriteFile(hostsFilePath, []byte(DefaultHosts), 0644); err != nil {
+		log.Errorf("Create hosts err : %v", err)
+	} else {
+		log.Debugf("Create hosts success")
+	}
+
+	// 完成 hostname 文件
+	hostnameFilePath := path.Join(containerDir, "hostname")
+
+	if err := ioutil.WriteFile(hostnameFilePath, []byte(containerID), 0644); err != nil {
+		log.Errorf("Create hostname err : %v", err)
+	} else {
+		log.Debugf("Create hostname success")
+	}
+
+	// 完成 resolv.conf 文件
+	resolvFilePath := path.Join(containerDir, "resolv.conf")
+
+	// 读取 host 主机上的 resolv.conf
+	resolvByte, _ := ioutil.ReadFile("/etc/resolv.conf")
+
+	// 写入 container 中
+	if err := ioutil.WriteFile(resolvFilePath, resolvByte, 0644); err != nil {
+		log.Errorf("Create resolv err : %v", err)
+	} else {
+		log.Debugf("Create resolv success")
+	}
 }
 
 // RemoveReplicaSliceString : 切片去重

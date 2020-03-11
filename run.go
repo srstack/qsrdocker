@@ -112,6 +112,12 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice, portmapping []string, re
 	// 检测 container 进程 状态
 	containerInfo.Status.StatusCheck()
 
+	// 初始化 hosts hostname resolv.conf
+	container.InitContainerHostConfig(containerID)
+
+	// 将 hosts hostname resolv.conf 加入 bind mount
+	volumes = container.AddHostConfig(containerID, volumes)
+
 	// 创建 mount bind 数据卷 挂载 信息文件
 	mountInfo := container.SetVolume(containerID, volumes)
 	log.Debugf("SetVolume qsrdocker %v Info file", containerID)
