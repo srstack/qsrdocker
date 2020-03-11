@@ -72,11 +72,10 @@ func stopContainer(containerName string, sleepTime int) {
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 
-	if containerInfo.NetWorks.Network.Driver == "bridge" {
-		err := network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
-		if err != nil {
-			log.Errorf("Stop container %v network error %v", containerName, err)
-		}
+	// 断开网络连接
+	err = network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
+	if err != nil {
+		log.Errorf("Stop container %v network error %v", containerName, err)
 	}
 
 	// 调用系统调用发送信号 SIGTERM
@@ -215,11 +214,9 @@ func startContainer(containerName string) {
 	log.Debugf("Create cgroup config: %+v", containerInfo.Cgroup.Resource)
 
 	// 启动容器网络
-	if containerInfo.NetWorks.Network.Driver == "bridge" {
-		err := network.Connect(containerInfo.NetWorks.Network.ID, nil, containerInfo)
-		if err != nil {
-			log.Errorf("Start container %v network error %v", containerName, err)
-		}
+	err = network.Connect(containerInfo.NetWorks.Network.ID, containerInfo.NetWorks.Network.Driver, nil, containerInfo)
+	if err != nil {
+		log.Errorf("Start container %v network error %v", containerName, err)
 	}
 
 	// 将用户命令发送给 init container 进程
@@ -278,6 +275,16 @@ func StartParentProcess(containerInfo *container.ContainerInfo) (*exec.Cmd, *os.
 			},
 		},
 		GidMappingsEnableSetgroups: false,
+	}
+
+	if containerInfo.NetWorks.Network.Driver == "host" {
+
+		// 除去 net ns
+		cmd.SysProcAttr.Cloneflags = (syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWIPC | // IPC 调用参数
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWNS | // 史上第一个 Namespace
+			syscall.CLONE_NEWUSER)
 	}
 
 	log.Debugf("Set NameSpace to qsrdocker : %v", containerInfo.ID)

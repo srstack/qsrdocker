@@ -85,6 +85,7 @@ func (bridge *BridgeNetworkDriver) Connect(network *container.Network, endpoint 
 	// 即 container ID 的前五位
 
 	bridgeLinkAttr.Name = strings.Join([]string{"qsrveth", endpoint.ID[:5]}, "")
+	endpoint.VethName = strings.Join([]string{"qsrveth", endpoint.ID[:5]}, "")
 
 	// 设置 veth配置的 master 属性，指向目标 bridge 网络
 	// 即将另一端挂在 linux bridge 网络上
@@ -123,6 +124,8 @@ func (bridge *BridgeNetworkDriver) Disconnect(endpoint *container.Endpoint) erro
 	if err != nil {
 		return fmt.Errorf("Del Bridge link %v error %v", endpoint.ID, err)
 	}
+
+	log.Debugf("Del bridge network connnet success")
 
 	return nil
 }

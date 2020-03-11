@@ -136,12 +136,9 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice, portmapping []string, re
 	// 将 cgroup 信息 存入 containerinfo
 	containerInfo.Cgroup = cgroupManager
 
-	// 判断网络参数
-	if networkID != "" && networkDriver == "bridge" {
-		// 连接网络
-		if err := network.Connect(networkID, portmapping, containerInfo); err != nil {
-			log.Errorf("Error Connect Network %v, using the host network now", err)
-		}
+	// 连接网络
+	if err := network.Connect(networkID, networkDriver, portmapping, containerInfo); err != nil {
+		log.Errorf("Error Connect Network %v, using the host network now", err)
 	}
 
 	// 将用户命令发送给 init container 进程

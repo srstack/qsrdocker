@@ -122,7 +122,14 @@ func DeleteNetwork(networkID string) error {
 }
 
 // Connect 连接容器和已创建网络
-func Connect(networkID string, portSlice []string, containerInfo *container.ContainerInfo) error {
+func Connect(networkID, netDriver string, portSlice []string, containerInfo *container.ContainerInfo) error {
+	if networkID == "" {
+		containerInfo.NetWorks = &container.Endpoint{
+			ID:      fmt.Sprintf("%s-%s", containerInfo.ID, netDriver),
+			Network: &container.Network{Driver: netDriver},
+		}
+		return nil
+	}
 
 	nw := &container.Network{
 		ID: networkID,
@@ -206,6 +213,11 @@ func Connect(networkID string, portSlice []string, containerInfo *container.Cont
 // Disconnect 解除容器和已创建网络的连接
 func Disconnect(networkID string, containerInfo *container.ContainerInfo) error {
 
+	// 不为 bridge 网络 直接返回
+	if strings.ToLower(containerInfo.NetWorks.Network.Driver) != "bridge" {
+		return nil
+	}
+
 	// 调用网络驱动 删除连接
 	if err := NetworkDriverMap[strings.ToLower(containerInfo.NetWorks.Network.Driver)].Disconnect(containerInfo.NetWorks); err != nil {
 		return err
@@ -214,7 +226,9 @@ func Disconnect(networkID string, containerInfo *container.ContainerInfo) error 
 	if err := ipAllocator.Release(containerInfo.NetWorks.Network.IPRange, &containerInfo.NetWorks.IPAddress); err != nil {
 		return fmt.Errorf("Remove Network %v ip %v error: %v", networkID, containerInfo.NetWorks.IPAddressStr, err)
 	}
+
 	log.Debugf("Release ip %v success", containerInfo.NetWorks.IPAddressStr)
+
 	// 情况容器网络状态
 	// 暂时不请客 容器 网络状态
 	// containerInfo.NetWorks = &container.Endpoint{}
