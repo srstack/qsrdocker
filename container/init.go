@@ -12,7 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
 // RunContainerInitProcess 创建真正的容器进程
 func RunContainerInitProcess() error {
 	// 获取用户输入
@@ -20,9 +19,9 @@ func RunContainerInitProcess() error {
 	// 去除空白字符
 	cmdList = RemoveNullSliceString(cmdList)
 	log.Debugf("Get cmdList %v from user", cmdList)
-	
+
 	if len(cmdList) == 0 || (len(cmdList) == 1 && strings.Replace(cmdList[0], " ", "", -1) == "") {
-			return fmt.Errorf("Run container get command is nil")
+		return fmt.Errorf("Run container get command is nil")
 	}
 
 	// 设置根目录挂载点
@@ -38,7 +37,7 @@ func RunContainerInitProcess() error {
 	}
 
 	// exec 创建真正的容器种需要运行的进程
-	 if err := syscall.Exec(absPath, cmdList[0:], os.Environ()); err != nil {
+	if err := syscall.Exec(absPath, cmdList[0:], os.Environ()); err != nil {
 		log.Errorf("Init container process error %v", err.Error())
 	}
 
@@ -62,7 +61,40 @@ func readUserCmd() []string {
 	// 传过来的是字节
 	cmdString := string(cmdByte)
 
-	cmdList := strings.Split(cmdString, " ")
+	cmdListInit := strings.Split(cmdString, " ")
+
+	// 存在 参数 “xx  yy zz” cmdtmpList 用于临时保存
+	cmdtmpList := []string{}
+
+	// cmdList 整理完成的 cmdlist
+	cmdList := []string{}
+
+	// 存在参数 “xx  yy”
+	for _, list := range cmdListInit {
+		if strings.HasPrefix(list, "\"") || strings.HasPrefix(list, "'") {
+
+			// 清空 cmdtmpList
+			cmdtmpList = []string{}
+			cmdtmpList = append(cmdtmpList, list)
+
+			// 跳过本次循环
+			continue
+		}
+
+		// “xx  yy” 的结尾
+		if strings.HasSuffix(list, "\"") || strings.HasPrefix(list, "'") {
+
+			// 清空 cmdtmpList
+			cmdtmpList = []string{}
+			cmdtmpList = append(cmdtmpList, list)
+
+			// 根据空格拼接 cmdtmpList
+			list = strings.Join(cmdtmpList, " ")
+		}
+
+		// 将命令加入到cmdList中
+		cmdList = append(cmdList, list)
+	}
 
 	return cmdList
 }
@@ -76,7 +108,7 @@ func pivotRoot(root string) error {
 	// 为了保证当前root的 new_root 和 old_root 不在同一文件系统中
 	// 需要将 root 重新 mount 一次
 	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
-		return fmt.Errorf("Mount roots to itself fail : %v", err )
+		return fmt.Errorf("Mount roots to itself fail : %v", err)
 	}
 
 	// 创建 rootfs/.pivot_root 存储 old_root
@@ -88,14 +120,14 @@ func pivotRoot(root string) error {
 	// 将 pivot 挂载到新的 rootfs
 	// 将 old_root 挂载到 rootfs/.pivot_root
 	if err := syscall.PivotRoot(root, pivotDir); err != nil {
-		return fmt.Errorf("Syscall.PivotRoot err : %v", err )
+		return fmt.Errorf("Syscall.PivotRoot err : %v", err)
 	}
 
 	// 修改当前工作目录到根目录
 	if err := syscall.Chdir("/"); err != nil {
-		return fmt.Errorf("Change work dir err : %v", err )
+		return fmt.Errorf("Change work dir err : %v", err)
 	}
-	
+
 	// new_root/.pivot_root
 	// 由于存在 根目录... 所以使用 filepath
 	pivotDir = filepath.Join("/", ".pivot_root")
@@ -103,12 +135,12 @@ func pivotRoot(root string) error {
 	// 解挂载
 	// MNT_DETACH 函数执行带有此参数，不会立即执行umount操作，而会等挂载点退出忙碌状态时才会去卸载它
 	if err := syscall.Unmount(pivotDir, syscall.MNT_DETACH); err != nil {
-		return fmt.Errorf("Unmount old_root err : %v", err )
+		return fmt.Errorf("Unmount old_root err : %v", err)
 	}
 
 	// 删除已经解除挂载的 old_root 临时文件夹 new_root/.pivot_root
 	if err := os.Remove(pivotDir); err != nil {
-		return fmt.Errorf("Remove old_root err : %v", err )
+		return fmt.Errorf("Remove old_root err : %v", err)
 	}
 
 	return nil
@@ -139,8 +171,8 @@ func setUpMount() {
 	} else {
 		log.Debugf("Mount proc system success")
 	}
-	
-	// 挂载内存文件系统 tmpfs 
+
+	// 挂载内存文件系统 tmpfs
 	if err := syscall.Mount("tmpfs", filepath.Join(pwd, "/dev"), "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755"); err != nil {
 		log.Warnf("Mount tmpfs system fail : %v", err)
 	} else {
@@ -151,5 +183,5 @@ func setUpMount() {
 	InitVolume(pwd)
 
 	// 修改当前目录为 根目录
-	pivotRoot(pwd) 
+	pivotRoot(pwd)
 }

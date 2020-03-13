@@ -122,7 +122,7 @@ func (bridge *BridgeNetworkDriver) Disconnect(endpoint *container.Endpoint) erro
 	err := netlink.LinkDel(&endpoint.Device)
 
 	if err != nil {
-		return fmt.Errorf("Del Bridge link %v error %v", endpoint.ID, err)
+		log.Warnf("Del Bridge link %v error %v", endpoint.ID, err)
 	}
 
 	log.Debugf("Del bridge network connnet success")

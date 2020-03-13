@@ -41,8 +41,8 @@ func main() {
 		log.SetFormatter(&log.JSONFormatter{})
 		log.SetOutput(os.Stdout)
 
-		//log.SetLevel(log.WarnLevel)
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(log.WarnLevel)
+		//log.SetLevel(log.DebugLevel)
 		return nil
 	}
 
