@@ -102,7 +102,7 @@ var runCmd = cli.Command{
 		imageName := cmdList[0]
 		cmdList = cmdList[1:]
 
-		log.Warnf("get cmd %v", cmdList)
+		// log.Warnf("get cmd %v", cmdList)
 
 		tty := context.Bool("it")
 		// -ti 或者 -it 都可以
