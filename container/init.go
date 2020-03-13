@@ -61,6 +61,9 @@ func readUserCmd() []string {
 	// 传过来的是字节
 	cmdString := string(cmdByte)
 
+	// 替换转义字符
+	cmdString = strings.ReplaceAll(cmdString, "\\", "")
+
 	cmdListInit := strings.Split(cmdString, " ")
 
 	// 存在 参数 “xx  yy zz” cmdtmpList 用于临时保存
@@ -90,6 +93,11 @@ func readUserCmd() []string {
 
 			// 根据空格拼接 cmdtmpList
 			list = strings.Join(cmdtmpList, " ")
+		}
+
+		if len(cmdtmpList) >= 1 {
+			cmdtmpList = append(cmdtmpList, list)
+			continue
 		}
 
 		// 将命令加入到cmdList中

@@ -102,6 +102,8 @@ var runCmd = cli.Command{
 		imageName := cmdList[0]
 		cmdList = cmdList[1:]
 
+		log.Warnf("get cmd %v", cmdList)
+
 		tty := context.Bool("it")
 		// -ti 或者 -it 都可以
 		detach := context.Bool("d")
@@ -124,7 +126,7 @@ var runCmd = cli.Command{
 		if networkDriver == "container" {
 			return fmt.Errorf("This mode is not currently supported")
 		}
-		
+
 		// container 模式网络 目标 container 信息
 		containerNetwork := context.String("container")
 

@@ -180,6 +180,15 @@ func startContainer(containerName string) {
 		return
 	}
 
+	// 容器是非正常状态 Dead
+	if containerInfo.Status.Dead {
+		// 断开网络连接
+		err = network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
+		if err != nil {
+			log.Errorf("Stop container %v network error %v", containerName, err)
+		}
+	}
+
 	// 判断容器状态
 	if containerInfo.Status.Running {
 		log.Errorf(" This container %v is running, can't not start", containerName)
