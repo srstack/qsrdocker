@@ -418,7 +418,7 @@ func DeleteWorkSpace(containerID string) error {
 
 	// 解除 overlay2 挂载
 	if err := UnMountPoint(containerID); err != nil {
-		log.Errorf("Can't unmount %v error %v", containerID, err)
+		log.Warnf("Can't unmount %v error %v", containerID, err)
 	}
 
 	// 目前版本未涉及到 docker stop  restart等操作
@@ -459,11 +459,10 @@ func UnMountPoint(containerID string) error {
 
 	// 解除挂载
 	if err := syscall.Unmount(mountPath, syscall.MNT_DETACH); err != nil {
-		log.Errorf("Umount overlay2 %s error %v", mountPath, err)
-		return err
+		log.Warnf("Umount overlay2 %s error %v", mountPath, err)
 	}
 
-	log.Debugf("Umount overlay2 %s success", mountPath)
+	// log.Debugf("Umount overlay2 %s success", mountPath)
 
 	return nil
 }
@@ -579,19 +578,19 @@ func AddHostConfig(containerID string, volumes []string) []string {
 	// hosts 文件
 	hostFile := path.Join(containerDir, "hosts")
 	if exists, _ := PathExists(hostFile); exists {
-		volumes = append(volumes, strings.Join([]string{hostFile,":","/etc/hosts"},""))
+		volumes = append(volumes, strings.Join([]string{hostFile, ":", "/etc/hosts"}, ""))
 	}
 
 	// hostname 文件
 	hostnameFile := path.Join(containerDir, "hostname")
 	if exists, _ := PathExists(hostnameFile); exists {
-		volumes = append(volumes, strings.Join([]string{hostnameFile,":","/etc/hostname"},""))
+		volumes = append(volumes, strings.Join([]string{hostnameFile, ":", "/etc/hostname"}, ""))
 	}
 
 	// resolv.conf文件
 	resolvFile := path.Join(containerDir, "resolv.conf")
 	if exists, _ := PathExists(resolvFile); exists {
-		volumes = append(volumes, strings.Join([]string{resolvFile,":","/etc/resolv.conf"},""))
+		volumes = append(volumes, strings.Join([]string{resolvFile, ":", "/etc/resolv.conf"}, ""))
 	}
 
 	return volumes

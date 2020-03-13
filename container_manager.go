@@ -125,6 +125,16 @@ func removeContainer(containerName string, Force, volume bool) {
 		}
 	}
 
+	// 容器是非正常状态 Dead
+	if containerInfo.Status.Dead {
+		// 断开网络连接
+		err = network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
+		if err != nil {
+			log.Errorf("Stop container %v network error %v", containerName, err)
+		}
+	}
+
+	// 删除容器状态信息
 	RemoveContainerNameInfo(containerID)
 
 	// 删除工作目录
@@ -144,9 +154,9 @@ func removeContainer(containerName string, Force, volume bool) {
 
 		for _, mountInfo := range volumeMountInfoSlice {
 			if err := os.RemoveAll(mountInfo.Source); err != nil {
-				log.Errorf("Remove Mount Bind Volume %s Error: %v", mountInfo.Source, err)
+				log.Errorf("Remove Mount Bind Volume %v Error: %v", mountInfo.Source, err)
 			} else {
-				log.Debug("Remove Mount Bind Volume %s success", mountInfo.Source)
+				log.Debug("Remove Mount Bind Volume %v success", mountInfo.Source)
 			}
 		}
 	}
