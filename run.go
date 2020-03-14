@@ -160,6 +160,12 @@ func QsrdockerRun(tty bool, cmdList, volumes, envSlice, portmapping []string, re
 		containerProcess.Wait()
 		// 进程退出 exit
 
+		// 断开网络连接
+		err = network.Disconnect(containerInfo.NetWorks.Network.ID, containerInfo)
+		if err != nil {
+			log.Errorf("Stop container %v network error %v", containerName, err)
+		}
+
 		// 删除容器信息
 		RemoveContainerNameInfo(containerID)
 
